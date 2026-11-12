@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ToolBox</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;background:#111;color:#eee}header{padding:12px;background:#1e3a5f;font-weight:bold}main{padding:12px}a{color:#7cc4ff;text-decoration:none}.r{display:flex;gap:8px;padding:10px 4px;border-bottom:1px solid #333;align-items:center}.r span{flex:1;word-break:break-all}.b{background:#2d6cdf;color:#fff;border:0;border-radius:8px;padding:10px 14px;margin:4px 2px;font-size:16px}progress{width:100%}textarea{width:100%;height:110px;background:#222;color:#eee;font-size:16px}</style></head>
+<body dir="auto"><header>ToolBox &mdash; <span id="dev"></span></header><main>
+<div><button class="b" onclick="tab('f')">Files</button><button class="b" onclick="tab('u')">Upload</button><button class="b" onclick="tab('a')">Apps</button><button class="b" onclick="tab('c')">Clipboard</button></div>
+<div id="f"></div>
+<div id="u" hidden><input type="file" id="fi" multiple onchange="up(this.files)"><p><label><input type="checkbox" id="uc"> upload to the current folder (Files tab)</label></p><div id="prog"></div></div>
+<div id="a" hidden></div>
+<div id="c" hidden><textarea id="ta"></textarea><br><button class="b" onclick="clipSet()">Send to phone</button><button class="b" onclick="clipGet()">Read from phone</button></div>
+</main>
+<script>
+var P=new URLSearchParams(location.search).get('pin')||prompt('PIN');var cur='';
+function api(p,q){return '/api/'+p+'?pin='+encodeURIComponent(P)+(q||'')}
+function e(s){return encodeURIComponent(s)}
+function sz(n){var u=['B','KB','MB','GB'],i=0;while(n>=1024&&i<3){n/=1024;i++}return n.toFixed(i?1:0)+' '+u[i]}
+function tab(t){['f','u','a','c'].forEach(function(x){document.getElementById(x).hidden=(x!=t)});if(t=='a')apps();if(t=='c')clipGet()}
+function row(par,label,f,href,size){var d=document.createElement('div');d.className='r';var s=document.createElement('span');var a=document.createElement('a');a.textContent=label;if(href){a.href=href}else{a.href='#';a.onclick=function(ev){ev.preventDefault();f()}}s.appendChild(a);d.appendChild(s);if(size!=null){var z=document.createElement('small');z.textContent=sz(size);d.appendChild(z)}par.appendChild(d)}
+function ls(p){fetch(api('ls','&path='+e(p||''))).then(function(r){return r.json()}).then(function(j){cur=j.path;var f=document.getElementById('f');f.innerHTML='';var up=j.path.replace(/\/[^\/]*$/,'')||'/';row(f,'[..] '+j.path,function(){ls(up)});j.items.forEach(function(i){var full=j.path+'/'+i.n;if(i.d)row(f,'[DIR] '+i.n,function(){ls(full)});else row(f,i.n,null,api('get','&path='+e(full)),i.s)})}).catch(function(){alert('PIN?')})}
+function up(files){var box=document.getElementById('prog');var useCur=document.getElementById('uc').checked;Array.prototype.forEach.call(files,function(f){var p=document.createElement('div');p.textContent=f.name;var pr=document.createElement('progress');pr.max=1;pr.value=0;box.appendChild(p);box.appendChild(pr);var x=new XMLHttpRequest();x.open('PUT',api('put','&name='+e(f.name)+(useCur&&cur?'&dir='+e(cur):'')));x.upload.onprogress=function(ev){pr.value=ev.loaded/ev.total};x.onload=function(){p.textContent='OK '+f.name};x.send(f)})}
+function apps(){fetch(api('apps')).then(function(r){return r.json()}).then(function(j){var a=document.getElementById('a');a.innerHTML='';j.forEach(function(i){row(a,i.name+' ('+i.ver+')'+(i.splits?' [XAPK]':''),null,api('app','&pkg='+e(i.pkg)+'&obb=0'),i.size);if(i.obb)row(a,'   + OBB',null,api('app','&pkg='+e(i.pkg)+'&obb=1'))})})}
+function clipGet(){fetch(api('clip')).then(function(r){return r.text()}).then(function(t){document.getElementById('ta').value=t})}
+function clipSet(){fetch(api('clip'),{method:'PUT',body:document.getElementById('ta').value})}
+fetch(api('info')).then(function(r){return r.json()}).then(function(j){document.getElementById('dev').textContent=j.name+' | Android '+j.android+' | '+j.battery+'% | '+sz(j.free)+' free';ls('')}).catch(function(){alert('PIN?')});
+</script></body></html>

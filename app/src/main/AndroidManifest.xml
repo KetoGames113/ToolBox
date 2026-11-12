@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
+
+    <application
+        android:name=".App"
+        android:label="ToolBox"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.TB"
+        android:supportsRtl="true"
+        android:largeHeap="true"
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode|locale|layoutDirection">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+                <data android:mimeType="application/zip"/>
+                <data android:mimeType="application/x-rar-compressed"/>
+                <data android:mimeType="application/x-7z-compressed"/>
+                <data android:mimeType="application/vnd.android.package-archive"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/pdf"/>
+                <data android:mimeType="video/*"/>
+                <data android:mimeType="audio/*"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="file"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="video/*"/>
+                <data android:mimeType="audio/*"/>
+                <data android:mimeType="image/*"/>
+                <data android:mimeType="application/pdf"/>
+                <data android:mimeType="text/html"/>
+                <data android:mimeType="application/zip"/>
+                <data android:mimeType="application/x-rar-compressed"/>
+                <data android:mimeType="application/x-7z-compressed"/>
+                <data android:mimeType="application/vnd.android.package-archive"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+                <data android:mimeType="application/zip"/>
+                <data android:mimeType="application/vnd.android.package-archive"/>
+            </intent-filter>
+        </activity>
+
+        <service android:name=".TransferService" android:exported="false" android:foregroundServiceType="dataSync"/>
+        <service android:name=".DownloadService" android:exported="false" android:foregroundServiceType="dataSync"/>
+        <service android:name=".AudioService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
+        <receiver android:name=".InstallReceiver" android:exported="false"/>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fp"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/>
+        </provider>
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+    </application>
+</manifest>
