@@ -92,9 +92,10 @@ fun PdfScreen(path: String) {
             Text("${r.pageCount} " + tr("صفحة", "pages"))
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val w = with(androidx.compose.ui.platform.LocalDensity.current) { (maxWidth * zoom).roundToPx() }.coerceAtMost(2600)
+            val mw = maxWidth
+            val w = with(androidx.compose.ui.platform.LocalDensity.current) { (mw * zoom).roundToPx() }.coerceAtMost(2600)
             Box(Modifier.horizontalScroll(rememberScrollState())) {
-                LazyColumn(Modifier.width(maxWidth * zoom)) {
+                LazyColumn(Modifier.width(mw * zoom)) {
                     items(r.pageCount) { i ->
                         val bmp by produceState<ImageBitmap?>(null, i, w) {
                             value = withContext(Dispatchers.IO) {
