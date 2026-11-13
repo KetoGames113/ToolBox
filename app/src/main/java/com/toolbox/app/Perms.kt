@@ -82,6 +82,7 @@ fun SettingsScreen() {
     val c = LocalContext.current
     val n = Tick.n
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ThemeCard()
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(tr("اللغة", "Language"), style = MaterialTheme.typography.titleMedium)

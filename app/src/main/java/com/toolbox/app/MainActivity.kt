@@ -33,6 +33,14 @@ import com.toolbox.app.ui.theme.TextHi
 import com.toolbox.app.ui.theme.ToolBoxTheme
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import java.io.File
 
 class Nav {
@@ -134,9 +142,11 @@ fun Root(nav: Nav) {
             BackHandler(enabled = nav.stack.size > 1) { nav.back() }
             val (route, arg) = nav.stack.last()
             val immersive = (route == "audio" || route == "audios") && Au.full
-            Scaffold(containerColor = Ink0, topBar = {
+            Box(Modifier.fillMaxSize().background(Ink0)) {
+            BackgroundLayer()
+            Scaffold(containerColor = Color.Transparent, topBar = {
                 if (route != "home" && !immersive) TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Ink0, titleContentColor = TextHi, navigationIconContentColor = TextHi, actionIconContentColor = TextHi),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = TextHi, navigationIconContentColor = TextHi, actionIconContentColor = TextHi),
                     title = { Text(titleOf(route)) },
                     navigationIcon = {
                         if (nav.stack.size > 1) IconButton(onClick = { nav.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
@@ -147,7 +157,9 @@ fun Root(nav: Nav) {
                 )
             }) { pad ->
                 Box((if (immersive) Modifier else Modifier.padding(pad)).fillMaxSize()) {
-                    key(route, arg) {
+                    AnimatedContent(targetState = route to arg, transitionSpec = {
+                        (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.96f)) togetherWith fadeOut(tween(120))
+                    }, label = "nav") { (route, arg) ->
                         when (route) {
                             "home" -> HomeScreen { nav.go(it) }
                             "settings" -> SettingsScreen()
@@ -174,6 +186,7 @@ fun Root(nav: Nav) {
                         }
                     }
                 }
+            }
             }
         }
     }

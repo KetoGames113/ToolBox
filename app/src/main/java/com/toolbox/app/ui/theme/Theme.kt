@@ -10,10 +10,11 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 
-private val Scheme = darkColorScheme(
+private fun scheme() = darkColorScheme(
     primary = Lavender, onPrimary = OnLavender,
-    primaryContainer = Color(0xFF3A2F6B), onPrimaryContainer = Lavender,
+    primaryContainer = LavenderDeep.copy(alpha = 0.35f).compositeOver(Ink1), onPrimaryContainer = Lavender,
     background = Ink0, onBackground = TextHi,
     surface = Ink1, onSurface = TextHi,
     surfaceVariant = Ink2, onSurfaceVariant = TextMid,
@@ -33,7 +34,7 @@ fun ToolBoxTheme(arabic: Boolean = true, content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalLayoutDirection provides if (arabic) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
-        MaterialTheme(colorScheme = Scheme, typography = ToolBoxTypography,
+        MaterialTheme(colorScheme = scheme(), typography = ToolBoxTypography,
             shapes = ToolBoxShapes, content = content)
     }
 }

@@ -121,15 +121,15 @@ fun clock(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s % 60) else "%02d:%02d".format(m, s % 60)
 }
 
-class Track(val path: String, val title: String, val artist: String, val dur: Long)
+class Track(val path: String, val title: String, val artist: String, val dur: Long, val album: String = "")
 
 fun queryAudio(c: Context): List<Track> {
     val l = mutableListOf<Track>()
     try {
         c.contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.DURATION),
+            arrayOf(MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.ALBUM),
             "${MediaStore.Audio.Media.DURATION} > 10000", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { q ->
-            while (q.moveToNext()) l.add(Track(q.getString(0) ?: continue, q.getString(1) ?: "", q.getString(2) ?: "", q.getLong(3)))
+            while (q.moveToNext()) l.add(Track(q.getString(0) ?: continue, q.getString(1) ?: "", q.getString(2) ?: "", q.getLong(3), q.getString(4) ?: ""))
         }
     } catch (_: Throwable) {}
     return l
@@ -184,84 +184,6 @@ object Au {
         Handler(Looper.getMainLooper()).postDelayed({
             if (sleepAt != 0L && System.currentTimeMillis() >= sleepAt - 1000) { vp.mp.pause(); sleepAt = 0 }
         }, min * 60_000L)
-    }
-}
-
-class AudioService : Service() {
-    override fun onBind(i: Intent?): IBinder? = null
-    override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
-        when (i?.action) {
-            "pp" -> Au.vp.toggle()
-            "next" -> Au.next()
-            "prev" -> Au.prev()
-            "stop" -> { Au.vp.mp.pause(); stopForeground(true); stopSelf(); return START_NOT_STICKY }
-        }
-        val n = build()
-        if (Build.VERSION.SDK_INT >= 29) startForeground(2, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK) else startForeground(2, n)
-        return START_NOT_STICKY
-    }
-    private fun act(a: String, ic: Int, t: String) = Notification.Action.Builder(
-        Icon.createWithResource(this, ic), t,
-        PendingIntent.getService(this, a.hashCode(), Intent(this, AudioService::class.java).setAction(a), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build()
-    private fun build(): Notification {
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Builder(this, "tb").setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(Au.cur?.title ?: "ToolBox").setContentText(Au.cur?.artist ?: "").setContentIntent(open).setOngoing(true)
-            .addAction(act("prev", android.R.drawable.ic_media_previous, "Prev"))
-            .addAction(act("pp", if (Au.vp.mp.isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play, "Play/Pause"))
-            .addAction(act("next", android.R.drawable.ic_media_next, "Next"))
-            .addAction(act("stop", android.R.drawable.ic_menu_close_clear_cancel, "Stop"))
-            .setStyle(Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)).build()
-    }
-}
-
-@Composable
-fun AudioScreen(path: String) {
-    val c = LocalContext.current
-    var tracks by remember { mutableStateOf(listOf<Track>()) }
-    var q by remember { mutableStateOf("") }
-    LaunchedEffect(path, Tick.n) {
-        tracks = withContext(Dispatchers.IO) {
-            val all = queryAudio(c)
-            if (path.isNotEmpty() && !path.startsWith("content:")) {
-                val sib = File(path).parentFile?.listFiles()?.filter { it.extension.lowercase() in AUD }?.sortedBy { it.name.lowercase() }
-                    ?.map { Track(it.path, it.nameWithoutExtension, "", 0) } ?: emptyList()
-                if (sib.isNotEmpty()) sib else all
-            } else all
-        }
-    }
-    LaunchedEffect(path, tracks) {
-        if (path.isNotEmpty() && tracks.isNotEmpty() && Au.cur?.path != path) {
-            if (path.startsWith("content:")) Au.play(listOf(Track(path, "Audio", "", 0)), 0)
-            else Au.play(tracks, tracks.indexOfFirst { it.path == path }.coerceAtLeast(0))
-            Au.full = true
-        }
-    }
-    DisposableEffect(Unit) { onDispose { Au.full = false } }
-    BackHandler(enabled = Au.full) { Au.full = false }
-    if (Au.full && Au.cur != null) { NowPlaying { Au.full = false }; return }
-    val vp = Au.vp
-    Column(Modifier.fillMaxSize()) {
-        SearchField(q, { q = it }, tr("بحث", "Search"), Modifier.padding(12.dp))
-        LazyColumn(Modifier.weight(1f)) {
-            items(tracks.filter { q.isBlank() || it.title.contains(q, true) || it.artist.contains(q, true) }, key = { it.path }) { t ->
-                val on = Au.cur?.path == t.path
-                Box(Modifier.background(if (on) AccAudio.copy(alpha = 0.10f) else Color.Transparent)) {
-                    ItemRow(
-                        t.title.ifEmpty { File(t.path).name },
-                        t.artist.ifEmpty { if (t.dur > 0) clock(t.dur) else "" },
-                        Icons.Rounded.MusicNote, AccAudio,
-                        if (t.dur > 0 && t.artist.isNotEmpty()) clock(t.dur) else null
-                    ) { Au.play(tracks, tracks.indexOf(t)); Au.full = true }
-                }
-            }
-        }
-        val cur = Au.cur
-        if (cur != null) Box(Modifier.clickable { Au.full = true }) {
-            MiniPlayer(cur.title.ifEmpty { File(cur.path).name }, cur.artist,
-                if (vp.len > 0) vp.time.toFloat() / vp.len else 0f, vp.playing,
-                { vp.toggle() }, { Au.next() }, { Au.prev() })
-        }
     }
 }
 

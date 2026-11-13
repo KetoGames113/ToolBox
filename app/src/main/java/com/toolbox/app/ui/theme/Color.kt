@@ -15,9 +15,9 @@ val TextMid = Color(0xFFB4B0C8)
 val TextLow = Color(0xFF7D7A92)
 
 // ── Brand lavender ──
-val Lavender = Color(0xFFCDBEFF)
-val LavenderDeep = Color(0xFF8E75F2)
-val OnLavender = Color(0xFF241553)
+val Lavender: Color get() = Accents[TB.accent].main
+val LavenderDeep: Color get() = Accents[TB.accent].deep
+val OnLavender: Color get() = Accents[TB.accent].on
 
 // ── Per-tool accents (icon tint + soft glow) ──
 val AccCleaner = Color(0xFF7CE0B5)

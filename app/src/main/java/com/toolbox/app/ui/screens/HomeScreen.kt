@@ -2,6 +2,14 @@ package com.toolbox.app.ui.screens
 
 import android.os.StatFs
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -50,25 +58,25 @@ fun HomeScreen(onOpen: (String) -> Unit) {
             Pair((t - f) / 1e9f, t / 1e9f)
         } catch (_: Throwable) { Pair(0f, 1f) }
     }
-    Box(Modifier.fillMaxSize().background(Ink0)) {
+    Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth().height(260.dp)
             .background(Brush.verticalGradient(listOf(Lavender.copy(.14f), Color.Transparent))))
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(160.dp),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(span = { GridItemSpan(2) }) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(top = 8.dp, bottom = 6.dp)) {
-                    Text("ToolBox", style = MaterialTheme.typography.displaySmall, color = TextHi)
+                    Text("ToolBox", style = MaterialTheme.typography.displaySmall.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp), color = TextHi)
                     Text(tr("كل أدواتك في مكان واحد", "All your tools in one place"),
                         style = MaterialTheme.typography.bodyMedium, color = TextMid)
                 }
             }
-            item(span = { GridItemSpan(2) }) { StorageHero(storage.first, storage.second) { onOpen("cleaner") } }
-            items(Tools) { t ->
-                ToolCard(tr(t.ar, t.en), tr(t.hintAr, t.hintEn), t.icon, t.accent, { onOpen(t.route) })
+            item(span = { GridItemSpan(maxLineSpan) }) { StorageHero(storage.first, storage.second) { onOpen("cleaner") } }
+            itemsIndexed(Tools) { i, t ->
+                Box(Modifier.stagger(i)) { ToolCard(tr(t.ar, t.en), tr(t.hintAr, t.hintEn), t.icon, t.accent, { onOpen(t.route) }) }
             }
         }
     }
@@ -83,10 +91,17 @@ private fun StorageHero(used: Float, total: Float, onClean: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("مساحة التخزين", "Storage"), style = MaterialTheme.typography.labelMedium, color = TextMid)
-            Text("%.1f / %.1f GB".format(used, total), style = MaterialTheme.typography.headlineSmall, color = TextHi)
+            Text("\u200E" + "%.1f / %.1f GB".format(java.util.Locale.US, used, total), style = MaterialTheme.typography.headlineSmall, color = TextHi)
             LinearProgressIndicator(progress = { (used / total).coerceIn(0f, 1f) }, Modifier.width(170.dp).height(8.dp),
                 color = Lavender, trackColor = Ink3, strokeCap = StrokeCap.Round)
         }
         PrimaryPill(tr("تنظيف", "Clean"), onClean, Modifier.align(Alignment.CenterVertically))
     }
+}
+
+@Composable
+private fun Modifier.stagger(i: Int): Modifier {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { delay(i * 40L); a.animateTo(1f, tween(380)) }
+    return this.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 40f }
 }
