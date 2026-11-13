@@ -76,7 +76,7 @@ fun ThemeCard() {
             try {
                 val f = File(c.filesDir, "bg_${System.currentTimeMillis()}.jpg")
                 c.contentResolver.openInputStream(u)?.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-                withContext(Dispatchers.Main) { TB.setBg(f.path) }
+                withContext(Dispatchers.Main) { TB.pickBg(f.path) }
             } catch (_: Throwable) {}
         }
     }
@@ -87,26 +87,26 @@ fun ThemeCard() {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Accents.forEachIndexed { i, a ->
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Brush.linearGradient(listOf(a.main, a.deep)))
-                        .border(if (TB.accent == i) 3.dp else 0.dp, TextHi, CircleShape).clickable { TB.setAccent(i) })
+                        .border(if (TB.accent == i) 3.dp else 0.dp, TextHi, CircleShape).clickable { TB.pickAccent(i) })
                 }
             }
             Text(tr("صورة الخلفية", "Background image"), style = MaterialTheme.typography.labelMedium, color = TextMid)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { pick.launch(arrayOf("image/*")) }) { Text(tr("اختيار صورة", "Choose image")) }
-                if (TB.bg.isNotEmpty()) OutlinedButton(onClick = { TB.setBg("") }) { Text(tr("إزالة", "Remove")) }
+                if (TB.bg.isNotEmpty()) OutlinedButton(onClick = { TB.pickBg("") }) { Text(tr("إزالة", "Remove")) }
             }
             if (TB.bg.isNotEmpty()) {
                 Text(tr("التمويه (Blur)", "Blur") + ": ${TB.blur}", style = MaterialTheme.typography.labelMedium, color = TextMid)
-                Slider(value = TB.blur.toFloat(), onValueChange = { TB.setBlur(it.toInt()) }, valueRange = 0f..25f)
+                Slider(value = TB.blur.toFloat(), onValueChange = { TB.pickBlur(it.toInt()) }, valueRange = 0f..25f)
                 Text(tr("التعتيم", "Dim") + ": ${TB.dim}%", style = MaterialTheme.typography.labelMedium, color = TextMid)
-                Slider(value = TB.dim.toFloat(), onValueChange = { TB.setDim(it.toInt()) }, valueRange = 0f..90f)
+                Slider(value = TB.dim.toFloat(), onValueChange = { TB.pickDim(it.toInt()) }, valueRange = 0f..90f)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("جلب كلمات الأغاني من الإنترنت", "Fetch lyrics online"), style = MaterialTheme.typography.bodyMedium)
                     Text(tr("يرسل اسم الأغنية والفنان إلى lrclib.net", "Sends song title and artist to lrclib.net"), style = MaterialTheme.typography.bodySmall, color = TextMid)
                 }
-                Switch(checked = TB.lyricsOnline, onCheckedChange = { TB.setLyrics(it) })
+                Switch(checked = TB.lyricsOnline, onCheckedChange = { TB.pickLyrics(it) })
             }
         }
     }

@@ -27,11 +27,11 @@ object TB {
     var dim by mutableIntStateOf(p().getInt("th_dim", 45)); private set
     var lyricsOnline by mutableStateOf(p().getBoolean("lyr_online", true)); private set
 
-    fun setAccent(i: Int) { accent = i; p().edit().putInt("th_acc", i).apply() }
-    fun setBlur(v: Int) { blur = v; p().edit().putInt("th_blur", v).apply() }
-    fun setDim(v: Int) { dim = v; p().edit().putInt("th_dim", v).apply() }
-    fun setLyrics(v: Boolean) { lyricsOnline = v; p().edit().putBoolean("lyr_online", v).apply() }
-    fun setBg(path: String) {
+    fun pickAccent(i: Int) { accent = i; p().edit().putInt("th_acc", i).apply() }
+    fun pickBlur(v: Int) { blur = v; p().edit().putInt("th_blur", v).apply() }
+    fun pickDim(v: Int) { dim = v; p().edit().putInt("th_dim", v).apply() }
+    fun pickLyrics(v: Boolean) { lyricsOnline = v; p().edit().putBoolean("lyr_online", v).apply() }
+    fun pickBg(path: String) {
         val old = bg
         bg = path; p().edit().putString("th_bg", path).apply()
         if (old.isNotEmpty() && old != path) try { File(old).delete() } catch (_: Throwable) {}
