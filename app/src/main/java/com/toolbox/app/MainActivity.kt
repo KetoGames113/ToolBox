@@ -27,6 +27,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.toolbox.app.ui.screens.HomeScreen
+import com.toolbox.app.ui.theme.Ink0
+import com.toolbox.app.ui.theme.TextHi
+import com.toolbox.app.ui.theme.ToolBoxTheme
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import java.io.File
 
 class Nav {
@@ -48,6 +54,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         i = this
         handle(intent)
         setContent { Root(nav) }
@@ -116,16 +126,17 @@ fun titleOf(r: String) = when (r) {
 
 @Composable
 fun Root(nav: Nav) {
-    val dark = isSystemInDarkTheme()
-    MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+    ToolBoxTheme(arabic = L.ar) {
         CompositionLocalProvider(
             LocalLayoutDirection provides (if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr),
             LocalNav provides nav
         ) {
             BackHandler(enabled = nav.stack.size > 1) { nav.back() }
             val (route, arg) = nav.stack.last()
-            Scaffold(topBar = {
-                TopAppBar(
+            val immersive = (route == "audio" || route == "audios") && Au.full
+            Scaffold(containerColor = Ink0, topBar = {
+                if (route != "home" && !immersive) TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Ink0, titleContentColor = TextHi, navigationIconContentColor = TextHi, actionIconContentColor = TextHi),
                     title = { Text(titleOf(route)) },
                     navigationIcon = {
                         if (nav.stack.size > 1) IconButton(onClick = { nav.back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
@@ -135,10 +146,10 @@ fun Root(nav: Nav) {
                     }
                 )
             }) { pad ->
-                Box(Modifier.padding(pad).fillMaxSize()) {
+                Box((if (immersive) Modifier else Modifier.padding(pad)).fillMaxSize()) {
                     key(route, arg) {
                         when (route) {
-                            "home" -> Home(nav)
+                            "home" -> HomeScreen { nav.go(it) }
                             "settings" -> SettingsScreen()
                             "device" -> DeviceScreen()
                             "cleaner" -> CleanerScreen()

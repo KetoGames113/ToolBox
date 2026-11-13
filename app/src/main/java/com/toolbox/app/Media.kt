@@ -21,6 +21,7 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.view.WindowManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
@@ -41,6 +42,11 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.MusicNote
+import com.toolbox.app.ui.components.ItemRow
+import com.toolbox.app.ui.components.MiniPlayer
+import com.toolbox.app.ui.components.SearchField
+import com.toolbox.app.ui.theme.AccAudio
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -159,6 +165,7 @@ object Au {
     var shuffle by mutableStateOf(false)
     var rep by mutableIntStateOf(0)           // 0 بدون، 1 الكل، 2 الأغنية
     var sleepAt by mutableLongStateOf(0L)
+    var full by mutableStateOf(false)
     val cur get() = list.getOrNull(idx)
 
     fun play(l: List<Track>, i: Int) { list = l; go(i) }
@@ -213,9 +220,6 @@ fun AudioScreen(path: String) {
     val c = LocalContext.current
     var tracks by remember { mutableStateOf(listOf<Track>()) }
     var q by remember { mutableStateOf("") }
-    var eq by remember { mutableStateOf(false) }
-    var speedMenu by remember { mutableStateOf(false) }
-    var sleepMenu by remember { mutableStateOf(false) }
     LaunchedEffect(path, Tick.n) {
         tracks = withContext(Dispatchers.IO) {
             val all = queryAudio(c)
@@ -230,73 +234,35 @@ fun AudioScreen(path: String) {
         if (path.isNotEmpty() && tracks.isNotEmpty() && Au.cur?.path != path) {
             if (path.startsWith("content:")) Au.play(listOf(Track(path, "Audio", "", 0)), 0)
             else Au.play(tracks, tracks.indexOfFirst { it.path == path }.coerceAtLeast(0))
+            Au.full = true
         }
     }
+    DisposableEffect(Unit) { onDispose { Au.full = false } }
+    BackHandler(enabled = Au.full) { Au.full = false }
+    if (Au.full && Au.cur != null) { NowPlaying { Au.full = false }; return }
     val vp = Au.vp
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(8.dp), singleLine = true, label = { Text(tr("بحث", "Search")) })
+        SearchField(q, { q = it }, tr("بحث", "Search"), Modifier.padding(12.dp))
         LazyColumn(Modifier.weight(1f)) {
             items(tracks.filter { q.isBlank() || it.title.contains(q, true) || it.artist.contains(q, true) }, key = { it.path }) { t ->
-                Row(Modifier.fillMaxWidth().clickable { Au.play(tracks, tracks.indexOf(t)) }
-                    .background(if (Au.cur?.path == t.path) MaterialTheme.colorScheme.primaryContainer else Color.Transparent).padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.MusicNote, null); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(t.title.ifEmpty { File(t.path).name }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (t.artist.isNotEmpty()) Text(t.artist, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                    }
-                    if (t.dur > 0) Text(clock(t.dur), style = MaterialTheme.typography.bodySmall)
+                val on = Au.cur?.path == t.path
+                Box(Modifier.background(if (on) AccAudio.copy(alpha = 0.10f) else Color.Transparent)) {
+                    ItemRow(
+                        t.title.ifEmpty { File(t.path).name },
+                        t.artist.ifEmpty { if (t.dur > 0) clock(t.dur) else "" },
+                        Icons.Rounded.MusicNote, AccAudio,
+                        if (t.dur > 0 && t.artist.isNotEmpty()) clock(t.dur) else null
+                    ) { Au.play(tracks, tracks.indexOf(t)); Au.full = true }
                 }
             }
         }
         val cur = Au.cur
-        if (cur != null) Card(Modifier.fillMaxWidth().padding(8.dp)) {
-            Column(Modifier.padding(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val art by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, cur.path) {
-                        value = withContext(Dispatchers.IO) {
-                            try { val r = MediaMetadataRetriever(); r.setDataSource(cur.path); val b = r.embeddedPicture; r.release(); b?.let { BitmapFactory.decodeByteArray(it, 0, it.size).asImageBitmap() } } catch (_: Throwable) { null }
-                        }
-                    }
-                    art?.let { Image(it, null, Modifier.size(56.dp)); Spacer(Modifier.width(10.dp)) }
-                    Column(Modifier.weight(1f)) {
-                        Text(cur.title.ifEmpty { File(cur.path).name }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                        Text(cur.artist, maxLines = 1, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Slider(value = if (vp.len > 0) vp.time.toFloat() / vp.len else 0f, onValueChange = { vp.mp.time = (it * vp.len).toLong() })
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(clock(vp.time)); Text(clock(vp.len)) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { Au.shuffle = !Au.shuffle }) { Icon(Icons.Default.Shuffle, null, tint = if (Au.shuffle) MaterialTheme.colorScheme.primary else LocalContentColor.current) }
-                    IconButton(onClick = { Au.prev() }) { Icon(Icons.Default.SkipPrevious, null) }
-                    FilledIconButton(onClick = { vp.toggle() }) { Icon(if (vp.playing) Icons.Default.Pause else Icons.Default.PlayArrow, null) }
-                    IconButton(onClick = { Au.next() }) { Icon(Icons.Default.SkipNext, null) }
-                    IconButton(onClick = { Au.rep = (Au.rep + 1) % 3 }) { Icon(if (Au.rep == 2) Icons.Default.RepeatOne else Icons.Default.Repeat, null, tint = if (Au.rep > 0) MaterialTheme.colorScheme.primary else LocalContentColor.current) }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Box {
-                        TextButton(onClick = { speedMenu = true }) { Text("${vp.mp.rate}x") }
-                        DropdownMenu(speedMenu, { speedMenu = false }) { listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f).forEach { s -> DropdownMenuItem(text = { Text("${s}x") }, onClick = { vp.mp.rate = s; speedMenu = false }) } }
-                    }
-                    TextButton(onClick = { eq = true }) { Text(tr("معادل", "EQ")) }
-                    Box {
-                        TextButton(onClick = { sleepMenu = true }) { Text(if (Au.sleepAt > 0) tr("مؤقت ✔", "Sleep ✔") else tr("مؤقت النوم", "Sleep")) }
-                        DropdownMenu(sleepMenu, { sleepMenu = false }) { listOf(0, 15, 30, 60).forEach { m -> DropdownMenuItem(text = { Text(if (m == 0) tr("إيقاف", "Off") else "$m min") }, onClick = { Au.sleep(m); sleepMenu = false }) } }
-                    }
-                }
-            }
+        if (cur != null) Box(Modifier.clickable { Au.full = true }) {
+            MiniPlayer(cur.title.ifEmpty { File(cur.path).name }, cur.artist,
+                if (vp.len > 0) vp.time.toFloat() / vp.len else 0f, vp.playing,
+                { vp.toggle() }, { Au.next() }, { Au.prev() })
         }
     }
-    if (eq) AlertDialog(onDismissRequest = { eq = false }, confirmButton = { TextButton(onClick = { eq = false }) { Text("OK") } },
-        title = { Text(tr("المعادل", "Equalizer")) },
-        text = {
-            LazyColumn {
-                item { TextButton(onClick = { vp.mp.setEqualizer(null); eq = false }) { Text(tr("إيقاف", "Off")) } }
-                items((0 until MediaPlayer.Equalizer.getPresetCount()).toList()) { i ->
-                    TextButton(onClick = { vp.mp.setEqualizer(MediaPlayer.Equalizer.createFromPreset(i)); eq = false }) { Text(MediaPlayer.Equalizer.getPresetName(i)) }
-                }
-            }
-        })
 }
 
 // ───────────────────────── الفيديو ─────────────────────────
