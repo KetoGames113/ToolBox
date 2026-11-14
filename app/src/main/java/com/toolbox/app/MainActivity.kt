@@ -136,13 +136,14 @@ fun titleOf(r: String) = when (r) {
 fun Root(nav: Nav) {
     ToolBoxTheme(arabic = L.ar) {
         UpdateHost()
+        InstallConflictHost()
         CompositionLocalProvider(
             LocalLayoutDirection provides (if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr),
             LocalNav provides nav
         ) {
             BackHandler(enabled = nav.stack.size > 1) { nav.back() }
             val (route, arg) = nav.stack.last()
-            val immersive = (route == "audio" || route == "audios") && Au.full
+            val immersive = ((route == "audio" || route == "audios") && Au.full) || route == "video"
             Box(Modifier.fillMaxSize().background(Ink0)) {
             BackgroundLayer()
             Scaffold(containerColor = Color.Transparent, contentColor = TextHi, topBar = {

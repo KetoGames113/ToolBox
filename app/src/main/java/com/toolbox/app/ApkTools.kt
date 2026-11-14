@@ -52,7 +52,15 @@ class InstallReceiver : BroadcastReceiver() {
                 if (n != null) c.startActivity(n.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
             PackageInstaller.STATUS_SUCCESS -> toast(tr("تم التثبيت ✔", "Installed"))
-            else -> toast(tr("فشل التثبيت: ", "Install failed: ") + (i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: ""))
+            else -> {
+                val st = i.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)
+                val msg = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: ""
+                val pk = i.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME) ?: InstallConflict.hint
+                val conflict = st == PackageInstaller.STATUS_FAILURE_CONFLICT || msg.contains("INCOMPATIBLE", true) ||
+                    msg.contains("signatures", true) || msg.contains("DOWNGRADE", true)
+                if (conflict && pk.isNotEmpty()) { InstallConflict.pkg = pk; InstallConflict.show = true }
+                else toast(tr("فشل التثبيت: ", "Install failed: ") + msg)
+            }
         }
     }
 }
@@ -177,10 +185,16 @@ object ApkTools {
         } catch (t: Throwable) { s.abandon(); throw t } finally { s.close() }
     }
 
-    fun installApk(c: Context, f: File) = session(c, listOf(Triple(f.name, f.length(), { f.inputStream() as java.io.InputStream })), {})
+    fun installApk(c: Context, f: File) {
+        InstallConflict.hint = c.packageManager.getPackageArchiveInfo(f.path, 0)?.packageName ?: ""
+        InstallConflict.retry = { Thread { try { installApk(c, f) } catch (t: Throwable) { toast("Error: " + t.message) } }.start() }
+        session(c, listOf(Triple(f.name, f.length(), { f.inputStream() as java.io.InputStream })), {})
+    }
 
     fun installBundle(c: Context, f: File, withObb: Boolean, prog: (String) -> Unit) {
         val info = bundleInfo(f) ?: throw IllegalStateException("bad archive")
+        InstallConflict.hint = info.pkg ?: ""
+        InstallConflict.retry = { Thread { try { installBundle(c, f, withObb, prog) } catch (t: Throwable) { toast("Error: " + t.message) } }.start() }
         ZipFile(f).use { z ->
             val items = info.apks.map { n -> val e = z.getEntry(n); Triple(n, e.size, { z.getInputStream(e) }) }
             session(c, items) {

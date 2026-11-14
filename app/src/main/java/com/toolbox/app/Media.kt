@@ -32,6 +32,9 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -238,7 +241,13 @@ fun VideoScreen(path: String) {
     val scales = listOf(MediaPlayer.ScaleType.SURFACE_BEST_FIT, MediaPlayer.ScaleType.SURFACE_FIT_SCREEN, MediaPlayer.ScaleType.SURFACE_FILL, MediaPlayer.ScaleType.SURFACE_16_9, MediaPlayer.ScaleType.SURFACE_4_3, MediaPlayer.ScaleType.SURFACE_ORIGINAL)
     DisposableEffect(Unit) {
         act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val ctrl = WindowCompat.getInsetsController(act.window, act.window.decorView)
+        ctrl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        ctrl.hide(WindowInsetsCompat.Type.systemBars())
+        if (Build.VERSION.SDK_INT >= 28) { val a0 = act.window.attributes; a0.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES; act.window.attributes = a0 }
         onDispose {
+            ctrl.show(WindowInsetsCompat.Type.systemBars())
+            if (Build.VERSION.SDK_INT >= 28) { val a1 = act.window.attributes; a1.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT; act.window.attributes = a1 }
             vp.release()
             act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -295,6 +304,11 @@ fun VideoScreen(path: String) {
                     }
                 }
                 IconButton(onClick = { scale = (scale + 1) % scales.size; vp.mp.videoScale = scales[scale]; hud = "▭ ${scale + 1}/${scales.size}" }) { Icon(Icons.Default.AspectRatio, null, tint = Color.White) }
+                IconButton(onClick = {
+                    val f = !landscape; landscape = f
+                    act.requestedOrientation = if (f) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    scale = if (f) 1 else 0; vp.mp.videoScale = scales[scale]
+                }) { Icon(Icons.Default.Fullscreen, null, tint = Color.White) }
                 IconButton(onClick = { landscape = !landscape; act.requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }) { Icon(Icons.Default.ScreenRotation, null, tint = Color.White) }
             }
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0x88000000)).padding(8.dp)) {
