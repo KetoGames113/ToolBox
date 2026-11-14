@@ -101,6 +101,12 @@ fun ThemeCard() {
                 Text(tr("التعتيم", "Dim") + ": ${TB.dim}%", style = MaterialTheme.typography.labelMedium, color = TextMid)
                 Slider(value = TB.dim.toFloat(), onValueChange = { TB.pickDim(it.toInt()) }, valueRange = 0f..90f)
             }
+            Text(tr("شفافية البطاقات (زجاج)", "Card transparency (glass)") + ": ${TB.glass}%", style = MaterialTheme.typography.labelMedium, color = TextMid)
+            Slider(value = TB.glass.toFloat(), onValueChange = { TB.pickGlass(it.toInt()) }, valueRange = 0f..85f)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("أيقونات بدون خلفية", "Icons without tile"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = TB.bareIcons, onCheckedChange = { TB.pickBare(it) })
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("جلب كلمات الأغاني من الإنترنت", "Fetch lyrics online"), style = MaterialTheme.typography.bodyMedium)

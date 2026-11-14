@@ -135,6 +135,7 @@ fun titleOf(r: String) = when (r) {
 @Composable
 fun Root(nav: Nav) {
     ToolBoxTheme(arabic = L.ar) {
+        UpdateHost()
         CompositionLocalProvider(
             LocalLayoutDirection provides (if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr),
             LocalNav provides nav
@@ -144,7 +145,7 @@ fun Root(nav: Nav) {
             val immersive = (route == "audio" || route == "audios") && Au.full
             Box(Modifier.fillMaxSize().background(Ink0)) {
             BackgroundLayer()
-            Scaffold(containerColor = Color.Transparent, topBar = {
+            Scaffold(containerColor = Color.Transparent, contentColor = TextHi, topBar = {
                 if (route != "home" && !immersive) TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = TextHi, navigationIconContentColor = TextHi, actionIconContentColor = TextHi),
                     title = { Text(titleOf(route)) },

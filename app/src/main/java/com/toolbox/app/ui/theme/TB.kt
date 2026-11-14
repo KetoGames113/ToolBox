@@ -25,15 +25,21 @@ object TB {
     var bg by mutableStateOf(p().getString("th_bg", "") ?: ""); private set
     var blur by mutableIntStateOf(p().getInt("th_blur", 12)); private set
     var dim by mutableIntStateOf(p().getInt("th_dim", 45)); private set
+    var glass by mutableIntStateOf(p().getInt("th_glass", 0)); private set
+    var bareIcons by mutableStateOf(p().getBoolean("th_bare", false)); private set
+    val cardAlpha: Float get() = 1f - glass / 100f
     var lyricsOnline by mutableStateOf(p().getBoolean("lyr_online", true)); private set
 
     fun pickAccent(i: Int) { accent = i; p().edit().putInt("th_acc", i).apply() }
     fun pickBlur(v: Int) { blur = v; p().edit().putInt("th_blur", v).apply() }
     fun pickDim(v: Int) { dim = v; p().edit().putInt("th_dim", v).apply() }
+    fun pickGlass(v: Int) { glass = v; p().edit().putInt("th_glass", v).apply() }
+    fun pickBare(v: Boolean) { bareIcons = v; p().edit().putBoolean("th_bare", v).apply() }
     fun pickLyrics(v: Boolean) { lyricsOnline = v; p().edit().putBoolean("lyr_online", v).apply() }
     fun pickBg(path: String) {
         val old = bg
         bg = path; p().edit().putString("th_bg", path).apply()
+        if (path.isNotEmpty() && glass == 0) pickGlass(40)
         if (old.isNotEmpty() && old != path) try { File(old).delete() } catch (_: Throwable) {}
     }
 }

@@ -86,8 +86,8 @@ fun HomeScreen(onOpen: (String) -> Unit) {
 private fun StorageHero(used: Float, total: Float, onClean: () -> Unit) {
     val shape = RoundedCornerShape(28.dp)
     Row(Modifier.fillMaxWidth()
-        .background(Brush.linearGradient(listOf(Color(0xFF2B2450), Ink1)), shape)
-        .border(1.dp, Stroke, shape).padding(20.dp),
+        .background(Brush.linearGradient(listOf(Color(0xFF2B2450).copy(alpha = TB.cardAlpha), Ink1)), shape)
+        .border(1.dp, GlassStroke, shape).padding(20.dp),
         horizontalArrangement = Arrangement.SpaceBetween) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("مساحة التخزين", "Storage"), style = MaterialTheme.typography.labelMedium, color = TextMid)

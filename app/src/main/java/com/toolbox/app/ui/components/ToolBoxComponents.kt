@@ -45,13 +45,14 @@ fun ToolCard(title: String, hint: String, icon: ImageVector, accent: Color,
         modifier.fillMaxWidth().height(148.dp)
             .pressable(onClick, shape)
             .background(Brush.linearGradient(listOf(Ink2, Ink1)), shape)
-            .border(1.dp, Stroke, shape)
+            .background(Brush.linearGradient(listOf(Color.White.copy(alpha = if (TB.glass > 0) 0.10f else 0f), Color.Transparent)), shape)
+            .border(1.dp, GlassStroke, shape)
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Box(
             Modifier.size(48.dp)
-                .background(Brush.radialGradient(listOf(accent.copy(.32f), accent.copy(.10f))), RoundedCornerShape(16.dp)),
+                .then(if (TB.bareIcons) Modifier else Modifier.background(Brush.radialGradient(listOf(accent.copy(.32f), accent.copy(.10f))), RoundedCornerShape(16.dp))),
             contentAlignment = Alignment.Center
         ) { Icon(icon, null, tint = accent, modifier = Modifier.size(26.dp)) }
         Column {
@@ -68,7 +69,7 @@ fun ToolBoxTopBar(title: String, onBack: (() -> Unit)? = null, trailing: @Compos
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) IconButton(onClick = onBack,
-            modifier = Modifier.size(44.dp).background(Ink1, CircleShape).border(1.dp, Stroke, CircleShape)) {
+            modifier = Modifier.size(44.dp).background(Ink1, CircleShape).border(1.dp, GlassStroke, CircleShape)) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = TextHi)
         }
         Text(title, style = MaterialTheme.typography.headlineSmall, color = TextHi,
@@ -81,7 +82,7 @@ fun ToolBoxTopBar(title: String, onBack: (() -> Unit)? = null, trailing: @Compos
 @Composable
 fun SectionCard(modifier: Modifier = Modifier, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(24.dp)
-    Column(modifier.fillMaxWidth().background(Ink1, shape).border(1.dp, Stroke, shape).padding(18.dp),
+    Column(modifier.fillMaxWidth().background(Ink1, shape).border(1.dp, GlassStroke, shape).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (title != null) Text(title, style = MaterialTheme.typography.titleMedium, color = TextHi)
         content()
@@ -173,7 +174,7 @@ fun ItemRow(title: String, meta: String, icon: ImageVector, accent: Color, trail
 @Composable
 fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
     val shape = CircleShape
-    Row(modifier.fillMaxWidth().height(52.dp).background(Ink1, shape).border(1.dp, Stroke, shape).padding(horizontal = 18.dp),
+    Row(modifier.fillMaxWidth().height(52.dp).background(Ink1, shape).border(1.dp, GlassStroke, shape).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Search, null, tint = TextLow)
         Box(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -191,8 +192,8 @@ fun MiniPlayer(title: String, artist: String, progress: Float, playing: Boolean,
                onToggle: () -> Unit, onNext: () -> Unit, onPrev: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(28.dp)
     Column(modifier.fillMaxWidth().padding(12.dp)
-        .background(Brush.verticalGradient(listOf(Color(0xFF2A2840), Ink2)), shape)
-        .border(1.dp, Stroke, shape).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        .background(Brush.verticalGradient(listOf(Color(0xFF2A2840).copy(alpha = TB.cardAlpha), Ink2)), shape)
+        .border(1.dp, GlassStroke, shape).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text(title, style = MaterialTheme.typography.titleMedium, color = TextHi, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(artist, style = MaterialTheme.typography.bodySmall, color = TextMid)

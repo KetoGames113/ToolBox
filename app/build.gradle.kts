@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+val vCode = (project.findProperty("vCode") as String?)?.toIntOrNull() ?: 1
 android {
     namespace = "com.toolbox.app"
     compileSdk = 35
@@ -10,11 +11,17 @@ android {
         applicationId = "com.toolbox.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = vCode
+        versionName = "1.0.$vCode"
+    }
+    signingConfigs {
+        create("tb") {
+            storeFile = file("toolbox.keystore"); storePassword = "toolbox123"
+            keyAlias = "toolbox"; keyPassword = "toolbox123"
+        }
     }
     splits { abi { isEnable = true; reset(); include("arm64-v8a", "armeabi-v7a"); isUniversalApk = true } }
-    buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("debug") } }
+    buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("tb") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }

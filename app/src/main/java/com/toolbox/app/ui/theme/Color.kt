@@ -4,10 +4,13 @@ import androidx.compose.ui.graphics.Color
 
 // ── Surfaces: layered, slightly violet-tinted ink ──
 val Ink0 = Color(0xFF0C0B12)      // app background
-val Ink1 = Color(0xFF14131C)      // cards
-val Ink2 = Color(0xFF1C1B27)      // raised / pressed
+val Ink1Solid = Color(0xFF14131C)
+val Ink2Solid = Color(0xFF1C1B27)
+val Ink1: Color get() = Ink1Solid.copy(alpha = TB.cardAlpha)   // cards (glass-aware)
+val Ink2: Color get() = Ink2Solid.copy(alpha = TB.cardAlpha)   // raised / pressed
 val Ink3 = Color(0xFF272636)      // borders, tracks
 val Stroke = Color(0x1AFFFFFF)    // 10% white hairline
+val GlassStroke: Color get() = if (TB.glass > 0) Color.White.copy(alpha = 0.20f) else Stroke
 
 // ── Text ──
 val TextHi = Color(0xFFF3F1FA)
