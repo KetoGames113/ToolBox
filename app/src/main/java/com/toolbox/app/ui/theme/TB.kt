@@ -28,6 +28,12 @@ object TB {
     var glass by mutableIntStateOf(p().getInt("th_glass", 0)); private set
     var bareIcons by mutableStateOf(p().getBoolean("th_bare", false)); private set
     val cardAlpha: Float get() = 1f - glass / 100f
+    var plTheme by mutableIntStateOf(p().getInt("pl_theme", 0)); private set
+    var plBg by mutableIntStateOf(p().getInt("pl_bg", 0)); private set
+    var plBlur by mutableIntStateOf(p().getInt("pl_blur", 18)); private set
+    var plDim by mutableIntStateOf(p().getInt("pl_dim", 35)); private set
+    var plDisc by mutableStateOf(p().getBoolean("pl_disc", true)); private set
+    var plLyr by mutableIntStateOf(p().getInt("pl_lyr", 100)); private set
     var lyricsOnline by mutableStateOf(p().getBoolean("lyr_online", true)); private set
 
     fun pickAccent(i: Int) { accent = i; p().edit().putInt("th_acc", i).apply() }
@@ -35,6 +41,12 @@ object TB {
     fun pickDim(v: Int) { dim = v; p().edit().putInt("th_dim", v).apply() }
     fun pickGlass(v: Int) { glass = v; p().edit().putInt("th_glass", v).apply() }
     fun pickBare(v: Boolean) { bareIcons = v; p().edit().putBoolean("th_bare", v).apply() }
+    fun pickPlTheme(v: Int) { plTheme = v; p().edit().putInt("pl_theme", v).apply() }
+    fun pickPlBg(v: Int) { plBg = v; p().edit().putInt("pl_bg", v).apply() }
+    fun pickPlBlur(v: Int) { plBlur = v; p().edit().putInt("pl_blur", v).apply() }
+    fun pickPlDim(v: Int) { plDim = v; p().edit().putInt("pl_dim", v).apply() }
+    fun pickPlDisc(v: Boolean) { plDisc = v; p().edit().putBoolean("pl_disc", v).apply() }
+    fun pickPlLyr(v: Int) { plLyr = v; p().edit().putInt("pl_lyr", v).apply() }
     fun pickLyrics(v: Boolean) { lyricsOnline = v; p().edit().putBoolean("lyr_online", v).apply() }
     fun pickBg(path: String) {
         val old = bg

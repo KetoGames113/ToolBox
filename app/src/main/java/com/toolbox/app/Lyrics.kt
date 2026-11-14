@@ -1,7 +1,17 @@
 package com.toolbox.app
 
 import android.net.Uri
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import android.os.Build
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import kotlin.math.abs
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -142,29 +152,48 @@ private fun Modifier.fadeEdges(): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
-        drawRect(Brush.verticalGradient(0f to Color.Transparent, 0.14f to Color.Black, 0.86f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+        drawRect(Brush.verticalGradient(0f to Color.Transparent, 0.16f to Color.Black, 0.84f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
     }
 
 @Composable
-fun LyricsPanel(lyr: Lyrics?, state: Int, time: Long, hi: Color, lo: Color, onSeek: (Long) -> Unit, onPick: () -> Unit, modifier: Modifier = Modifier) {
-    when {
-        state == 0 -> Box(modifier, Alignment.Center) { CircularProgressIndicator(color = hi, modifier = Modifier.size(28.dp), strokeWidth = 3.dp) }
-        lyr == null -> Column(modifier, Arrangement.Center, Alignment.CenterHorizontally) {
-            Text(tr("لا توجد كلمات لهذه الأغنية", "No lyrics for this song"), color = lo, fontSize = 15.sp)
-            TextButton(onClick = onPick, colors = ButtonDefaults.textButtonColors(contentColor = hi)) { Text(tr("اختيار ملف الكلمات", "Choose lyrics file")) }
-        }
-        else -> {
-            val list = rememberLazyListState()
-            val cur = if (lyr.synced) lyr.lines.indexOfLast { it.t <= time + 250 } else -1
-            LaunchedEffect(cur) { if (cur >= 0) list.animateScrollToItem(cur, -(list.layoutInfo.viewportSize.height / 3)) }
-            LazyColumn(modifier.fadeEdges(), state = list, contentPadding = PaddingValues(vertical = 70.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                itemsIndexed(lyr.lines) { i, l ->
-                    val on = i == cur
-                    Text(l.text, Modifier.fillMaxWidth().clickable(enabled = lyr.synced) { onSeek(l.t) }.padding(vertical = 7.dp, horizontal = 8.dp),
-                        color = if (on || !lyr.synced) hi else lo.copy(alpha = 0.6f), textAlign = TextAlign.Center,
-                        fontSize = if (on) 23.sp else 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = if (on) 32.sp else 26.sp)
-                }
+fun LyricsPanel(lyr: Lyrics?, state: Int, time: Long, hi: Color, lo: Color, fontScale: Float, onSeek: (Long) -> Unit, onPick: () -> Unit, modifier: Modifier = Modifier) {
+    Crossfade(targetState = Pair(state, lyr), animationSpec = tween(500), modifier = modifier, label = "lyrics") { (st, ly) ->
+        when {
+            st == 0 -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = hi, modifier = Modifier.size(28.dp), strokeWidth = 3.dp) }
+            ly == null -> Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
+                Text(tr("لا توجد كلمات لهذه الأغنية", "No lyrics for this song"), color = lo, fontSize = 15.sp)
+                TextButton(onClick = onPick, colors = ButtonDefaults.textButtonColors(contentColor = hi)) { Text(tr("اختيار ملف الكلمات", "Choose lyrics file")) }
             }
+            else -> LyricsList(ly, time, hi, lo, fontScale, onSeek)
+        }
+    }
+}
+
+@Composable
+private fun LyricsList(lyr: Lyrics, time: Long, hi: Color, lo: Color, fs: Float, onSeek: (Long) -> Unit) {
+    val list = rememberLazyListState()
+    val cur = if (lyr.synced) lyr.lines.indexOfLast { it.t <= time + 250 } else -1
+    LaunchedEffect(cur) { if (cur >= 0) list.animateScrollToItem(cur, -(list.layoutInfo.viewportSize.height / 3)) }
+    LazyColumn(Modifier.fillMaxSize().fadeEdges(), state = list, contentPadding = PaddingValues(vertical = 90.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        itemsIndexed(lyr.lines) { i, l ->
+            val on = lyr.synced && i == cur
+            val d = if (cur < 0) 0 else abs(i - cur)
+            val flat = !lyr.synced || on
+            val a by animateFloatAsState(if (flat) 1f else when (d) { 1 -> 0.6f; 2 -> 0.4f; else -> 0.25f }, tween(450), label = "a")
+            val sc by animateFloatAsState(if (flat) 1f else 0.86f, spring(dampingRatio = 0.62f, stiffness = 170f), label = "s")
+            val ty by animateFloatAsState(if (flat) 0f else 12f, tween(420), label = "t")
+            val glow by animateFloatAsState(if (on) 1f else 0f, tween(550), label = "g")
+            val soft = if (Build.VERSION.SDK_INT >= 31 && d >= 2) Modifier.blur(((d - 1) * 1.3f).coerceAtMost(4f).dp) else Modifier
+            Text(
+                l.text,
+                Modifier.fillMaxWidth().then(soft)
+                    .graphicsLayer { alpha = a; scaleX = sc; scaleY = sc; translationY = ty }
+                    .clickable(enabled = lyr.synced) { onSeek(l.t) }
+                    .padding(vertical = 8.dp, horizontal = 10.dp),
+                color = if (flat) hi else lo, textAlign = TextAlign.Center,
+                fontSize = (21 * fs).sp, lineHeight = (29 * fs).sp, fontWeight = FontWeight.ExtraBold,
+                style = TextStyle(shadow = Shadow(hi.copy(alpha = 0.6f * glow), Offset.Zero, 26f * glow))
+            )
         }
     }
 }
