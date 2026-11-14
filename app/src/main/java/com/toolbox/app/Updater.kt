@@ -19,28 +19,39 @@ import com.toolbox.app.ui.theme.TextMid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** تحديث ذاتي: يقرأ update.json من إصدار latest على GitHub، ينزّل APK داخل التطبيق ويثبّته عبر PackageInstaller. */
+/** تحديث ذاتي: يقرأ update.json من إصدار latest على GitHub، ينزّل الفرق (bsdiff) ويدمجه أو الملف الكامل، ثم يثبّته. */
 object Updater {
     private const val BASE = "https://github.com/KetoGames113/ToolBox/releases/download/latest/"
-    class Info(val code: Int, val name: String, val size: Long)
+    class Step(val from: String, val to: String, val asset: String, val size: Long)
+    class Info(val code: Int, val name: String, val fullSize: Long, val sha: String, val steps: List<Step>) {
+        val deltaSize: Long get() = steps.sumOf { it.size }
+        val useDelta: Boolean get() = steps.isNotEmpty()
+        val size: Long get() = if (useDelta) deltaSize else fullSize
+    }
 
     var info by mutableStateOf<Info?>(null); private set
     var checking by mutableStateOf(false); private set
-    var progress by mutableFloatStateOf(-1f); private set   // -1 خامل، 0..1 تنزيل، 2 تثبيت
+    var progress by mutableFloatStateOf(-1f); private set   // -1 خامل، 0..1 تنزيل، 2 دمج/تثبيت
     var status by mutableStateOf(""); private set
     var dismissed by mutableStateOf(false)
     var got by mutableLongStateOf(0L); private set
     var totalBytes by mutableLongStateOf(0L); private set
 
     fun abi(): String = Build.SUPPORTED_ABIS.firstOrNull { it == "arm64-v8a" || it == "armeabi-v7a" } ?: "arm64-v8a"
+    private fun key() = if (abi() == "arm64-v8a") "arm64" else "armv7"
 
     fun progressText(): String =
         if (progress in 0f..1f) "${(progress * 100).toInt()}%  •  ${fmt(got)} / ${fmt(totalBytes)}" else ""
+
+    fun sizeLine(i: Info): String =
+        if (i.useDelta) tr("حجم التحديث: ", "Update size: ") + fmt(i.deltaSize) + tr("  (فرق فقط بدل ", "  (delta instead of ") + fmt(i.fullSize) + ")"
+        else tr("حجم التحديث: ", "Update size: ") + fmt(i.fullSize)
 
     fun installedCode(c: Context): Int = try {
         PackageInfoCompat.getLongVersionCode(c.packageManager.getPackageInfo(c.packageName, 0)).toInt()
@@ -55,6 +66,25 @@ object Updater {
         return c
     }
 
+    /** يبحث عن سلسلة رقع تبدأ من التوقيع الرقمي للنسخة المثبّتة وتنتهي بالنسخة الجديدة. */
+    private fun plan(c: Context, chain: JSONArray?, newSha: String, full: Long): List<Step> {
+        if (chain == null || newSha.isEmpty()) return emptyList()
+        return try {
+            val list = (0 until chain.length()).map { chain.getJSONObject(it) }
+                .map { Step(it.getString("from"), it.getString("to"), it.getString("asset"), it.optLong("size", 0L)) }
+            var cur = BsPatch.sha256(File(c.applicationInfo.sourceDir))
+            val steps = ArrayList<Step>()
+            while (cur != newSha) {
+                val e = list.firstOrNull { it.from == cur } ?: return emptyList()
+                steps.add(e); cur = e.to
+                if (steps.size > 8) return emptyList()
+            }
+            if (steps.isEmpty()) emptyList()
+            else if (full > 0 && steps.sumOf { it.size } > full * 7 / 10) emptyList()
+            else steps
+        } catch (_: Throwable) { emptyList() }
+    }
+
     suspend fun check(c: Context, manual: Boolean) {
         if (checking) return
         checking = true
@@ -65,46 +95,90 @@ object Updater {
                 if (con.responseCode != 200) null else JSONObject(con.inputStream.bufferedReader().use { it.readText() })
             } catch (_: Throwable) { null }
         }
-        checking = false
         c.applicationContext.getSharedPreferences("tb", Context.MODE_PRIVATE).edit().putLong("upd_last", System.currentTimeMillis()).apply()
-        if (r == null) { if (manual) status = tr("تعذّر الوصول لخادم التحديث", "Couldn't reach the update server"); return }
+        if (r == null) { checking = false; if (manual) status = tr("تعذّر الوصول لخادم التحديث", "Couldn't reach the update server"); return }
         val code = r.optInt("versionCode", 0)
         if (code > installedCode(c)) {
-            info = Info(code, r.optString("versionName", ""), r.optLong(if (abi() == "arm64-v8a") "arm64" else "armv7", 0L))
+            val k = key()
+            val full = r.optLong(k, 0L); val sha = r.optString("sha_$k", "")
+            val steps = withContext(Dispatchers.IO) { plan(c, r.optJSONArray("chain_$k"), sha, full) }
+            info = Info(code, r.optString("versionName", ""), full, sha, steps)
             dismissed = false
             if (manual) status = tr("يوجد تحديث جديد", "Update available")
         } else {
             info = null
             if (manual) status = tr("أنت على آخر إصدار ✔", "You're up to date ✔")
         }
+        checking = false
+    }
+
+    private fun download(url: String, dest: File, onBytes: (Int) -> Unit) {
+        val con = open(url)
+        if (con.responseCode != 200) throw IllegalStateException("HTTP " + con.responseCode)
+        con.inputStream.use { inp ->
+            dest.outputStream().use { out ->
+                val buf = ByteArray(1 shl 16)
+                while (true) { val n = inp.read(buf); if (n < 0) break; out.write(buf, 0, n); onBytes(n) }
+            }
+        }
+    }
+
+    private fun fetchFull(c: Context, i: Info, f: File) {
+        got = 0L; totalBytes = i.fullSize; progress = 0f
+        download(BASE + "ToolBox-${abi()}.apk", f) { n ->
+            got += n
+            if (totalBytes > 0) progress = (got.toFloat() / totalBytes).coerceIn(0f, 1f)
+        }
+    }
+
+    private fun fetchDelta(c: Context, i: Info, target: File) {
+        got = 0L; totalBytes = i.deltaSize; progress = 0f
+        val patches = ArrayList<File>()
+        val made = ArrayList<File>()
+        try {
+            i.steps.forEachIndexed { idx, st ->
+                val pf = File(c.cacheDir, "patch_$idx.bin"); patches.add(pf)
+                download(BASE + st.asset, pf) { n ->
+                    got += n
+                    if (totalBytes > 0) progress = (got.toFloat() / totalBytes).coerceIn(0f, 1f)
+                }
+            }
+            progress = 2f; status = tr("جارٍ دمج الفروقات…", "Merging patches…")
+            var cur = File(c.applicationInfo.sourceDir)
+            i.steps.forEachIndexed { idx, st ->
+                val outF = File(c.cacheDir, "step_$idx.apk"); made.add(outF)
+                BsPatch.apply(cur.readBytes(), patches[idx], outF)
+                if (BsPatch.sha256(outF) != st.to) throw IllegalStateException("hash mismatch")
+                cur = outF
+            }
+            if (!cur.renameTo(target)) { cur.copyTo(target, true) }
+            if (BsPatch.sha256(target) != i.sha) throw IllegalStateException("final hash mismatch")
+        } finally {
+            patches.forEach { it.delete() }; made.forEach { it.delete() }
+        }
     }
 
     suspend fun install(c: Context) {
-        if (info == null || progress >= 0f) return
+        val i = info ?: return
+        if (progress >= 0f) return
         if (!c.packageManager.canRequestPackageInstalls()) {
             status = tr("اسمح بالتثبيت من ToolBox ثم ارجع واضغط تحديث", "Allow installs from ToolBox, then come back and tap Update")
             c.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + c.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
         }
-        progress = 0f; got = 0L; totalBytes = info?.size ?: 0L; status = tr("جارٍ التنزيل…", "Downloading…")
+        progress = 0f; status = if (i.useDelta) tr("جارٍ تنزيل الفروقات…", "Downloading patches…") else tr("جارٍ التنزيل…", "Downloading…")
         val err = withContext(Dispatchers.IO) {
             try {
-                val abi = abi()
                 val f = File(c.cacheDir, "update.apk"); f.delete()
-                val con = open(BASE + "ToolBox-$abi.apk")
-                if (con.responseCode != 200) return@withContext "HTTP " + con.responseCode
-                val total = con.contentLengthLong
-                if (total > 0) totalBytes = total
-                con.inputStream.use { inp ->
-                    f.outputStream().use { out ->
-                        val buf = ByteArray(1 shl 16); var done = 0L; var last = 0L
-                        while (true) {
-                            val n = inp.read(buf); if (n < 0) break
-                            out.write(buf, 0, n); done += n
-                            if (total > 0 && done - last > 150_000) { last = done; got = done; progress = done.toFloat() / total }
-                        }
+                var ok = false
+                if (i.useDelta) {
+                    try { fetchDelta(c, i, f); ok = true }
+                    catch (_: Throwable) {
+                        f.delete()
+                        status = tr("تعذّر دمج الفروقات، ننزّل الملف الكامل…", "Patch failed, downloading the full file…")
                     }
                 }
+                if (!ok) fetchFull(c, i, f)
                 val pi = c.packageManager.getPackageArchiveInfo(f.path, 0)
                 if (pi == null || pi.packageName != c.packageName) return@withContext tr("الملف المنزّل غير صالح", "Downloaded file is invalid")
                 progress = 2f; status = tr("جارٍ التثبيت…", "Installing…")
@@ -143,7 +217,7 @@ fun UpdateHost() {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("v" + i.name)
-                if (Updater.progress < 0f && i.size > 0) Text(tr("الحجم: ", "Size: ") + fmt(i.size), style = MaterialTheme.typography.bodyMedium)
+                if (Updater.progress < 0f && i.size > 0) Text(Updater.sizeLine(i), style = MaterialTheme.typography.bodyMedium)
                 if (Updater.progress >= 0f) LinearProgressIndicator(progress = { if (Updater.progress in 0f..1f) Updater.progress else 1f }, Modifier.fillMaxWidth())
                 if (Updater.progress in 0f..1f) Text(Updater.progressText(), style = MaterialTheme.typography.titleSmall)
                 if (Updater.status.isNotEmpty()) Text(Updater.status, style = MaterialTheme.typography.bodySmall)
@@ -167,7 +241,7 @@ fun UpdateCard() {
             if (Updater.progress >= 0f) LinearProgressIndicator(progress = { if (Updater.progress in 0f..1f) Updater.progress else 1f }, Modifier.fillMaxWidth())
             if (Updater.progress in 0f..1f) Text(Updater.progressText(), style = MaterialTheme.typography.titleSmall)
             val inf = Updater.info
-            if (inf != null && inf.size > 0 && Updater.progress < 0f) Text(tr("حجم التحديث: ", "Update size: ") + fmt(inf.size), style = MaterialTheme.typography.bodySmall, color = TextMid)
+            if (inf != null && inf.size > 0 && Updater.progress < 0f) Text(Updater.sizeLine(inf), style = MaterialTheme.typography.bodySmall, color = TextMid)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !Updater.checking && Updater.progress < 0f, onClick = { scope.launch { Updater.check(c, true) } }) { Text(tr("تحقق من التحديثات", "Check for updates")) }
                 if (Updater.info != null) FilledTonalButton(enabled = Updater.progress < 0f, onClick = { scope.launch { Updater.install(c) } }) { Text(tr("تحديث الآن", "Update now")) }
