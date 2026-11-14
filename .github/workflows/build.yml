@@ -27,7 +27,8 @@ jobs:
           cd app/build/outputs/apk/release
           cp *arm64-v8a*.apk ToolBox-arm64-v8a.apk
           cp *armeabi-v7a*.apk ToolBox-armeabi-v7a.apk
-          echo '{"versionCode":${{ github.run_number }},"versionName":"1.0.${{ github.run_number }}"}' > update.json
+          S1=$(stat -c%s ToolBox-arm64-v8a.apk); S2=$(stat -c%s ToolBox-armeabi-v7a.apk)
+          echo "{\"versionCode\":${{ github.run_number }},\"versionName\":\"1.0.${{ github.run_number }}\",\"arm64\":$S1,\"armv7\":$S2}" > update.json
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest ToolBox-arm64-v8a.apk ToolBox-armeabi-v7a.apk update.json --title "ToolBox latest (build ${{ github.run_number }})" --notes "Automatic build ${{ github.sha }}" --target ${{ github.sha }}
   windows:

@@ -254,7 +254,6 @@ private fun Extras(vp: Vp, onLyrics: (() -> Unit)?, onPickLrc: () -> Unit) {
                 listOf(0, 15, 30, 60).forEach { m -> DropdownMenuItem(text = { Text(if (m == 0) tr("إيقاف", "Off") else "$m min") }, onClick = { Au.sleep(m); sleepMenu = false }) }
             }
         }
-        if (onLyrics == null) TextButton(onClick = onPickLrc, colors = tc) { Text(".lrc") }
     }
     if (eq) AlertDialog(onDismissRequest = { eq = false }, confirmButton = { TextButton(onClick = { eq = false }) { Text("OK") } },
         title = { Text(tr("المعادل", "Equalizer")) },

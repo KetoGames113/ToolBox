@@ -151,7 +151,7 @@ fun LyricsPanel(lyr: Lyrics?, state: Int, time: Long, hi: Color, lo: Color, onSe
         state == 0 -> Box(modifier, Alignment.Center) { CircularProgressIndicator(color = hi, modifier = Modifier.size(28.dp), strokeWidth = 3.dp) }
         lyr == null -> Column(modifier, Arrangement.Center, Alignment.CenterHorizontally) {
             Text(tr("لا توجد كلمات لهذه الأغنية", "No lyrics for this song"), color = lo, fontSize = 15.sp)
-            TextButton(onClick = onPick, colors = ButtonDefaults.textButtonColors(contentColor = hi)) { Text(tr("اختيار ملف .lrc", "Pick an .lrc file")) }
+            TextButton(onClick = onPick, colors = ButtonDefaults.textButtonColors(contentColor = hi)) { Text(tr("اختيار ملف الكلمات", "Choose lyrics file")) }
         }
         else -> {
             val list = rememberLazyListState()

@@ -27,13 +27,20 @@ import java.net.URL
 /** تحديث ذاتي: يقرأ update.json من إصدار latest على GitHub، ينزّل APK داخل التطبيق ويثبّته عبر PackageInstaller. */
 object Updater {
     private const val BASE = "https://github.com/KetoGames113/ToolBox/releases/download/latest/"
-    class Info(val code: Int, val name: String)
+    class Info(val code: Int, val name: String, val size: Long)
 
     var info by mutableStateOf<Info?>(null); private set
     var checking by mutableStateOf(false); private set
     var progress by mutableFloatStateOf(-1f); private set   // -1 خامل، 0..1 تنزيل، 2 تثبيت
     var status by mutableStateOf(""); private set
     var dismissed by mutableStateOf(false)
+    var got by mutableLongStateOf(0L); private set
+    var totalBytes by mutableLongStateOf(0L); private set
+
+    fun abi(): String = Build.SUPPORTED_ABIS.firstOrNull { it == "arm64-v8a" || it == "armeabi-v7a" } ?: "arm64-v8a"
+
+    fun progressText(): String =
+        if (progress in 0f..1f) "${(progress * 100).toInt()}%  •  ${fmt(got)} / ${fmt(totalBytes)}" else ""
 
     fun installedCode(c: Context): Int = try {
         PackageInfoCompat.getLongVersionCode(c.packageManager.getPackageInfo(c.packageName, 0)).toInt()
@@ -63,7 +70,7 @@ object Updater {
         if (r == null) { if (manual) status = tr("تعذّر الوصول لخادم التحديث", "Couldn't reach the update server"); return }
         val code = r.optInt("versionCode", 0)
         if (code > installedCode(c)) {
-            info = Info(code, r.optString("versionName", ""))
+            info = Info(code, r.optString("versionName", ""), r.optLong(if (abi() == "arm64-v8a") "arm64" else "armv7", 0L))
             dismissed = false
             if (manual) status = tr("يوجد تحديث جديد", "Update available")
         } else {
@@ -79,21 +86,22 @@ object Updater {
             c.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + c.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
         }
-        progress = 0f; status = tr("جارٍ التنزيل…", "Downloading…")
+        progress = 0f; got = 0L; totalBytes = info?.size ?: 0L; status = tr("جارٍ التنزيل…", "Downloading…")
         val err = withContext(Dispatchers.IO) {
             try {
-                val abi = Build.SUPPORTED_ABIS.firstOrNull { it == "arm64-v8a" || it == "armeabi-v7a" } ?: "arm64-v8a"
+                val abi = abi()
                 val f = File(c.cacheDir, "update.apk"); f.delete()
                 val con = open(BASE + "ToolBox-$abi.apk")
                 if (con.responseCode != 200) return@withContext "HTTP " + con.responseCode
                 val total = con.contentLengthLong
+                if (total > 0) totalBytes = total
                 con.inputStream.use { inp ->
                     f.outputStream().use { out ->
                         val buf = ByteArray(1 shl 16); var done = 0L; var last = 0L
                         while (true) {
                             val n = inp.read(buf); if (n < 0) break
                             out.write(buf, 0, n); done += n
-                            if (total > 0 && done - last > 300_000) { last = done; progress = done.toFloat() / total }
+                            if (total > 0 && done - last > 150_000) { last = done; got = done; progress = done.toFloat() / total }
                         }
                     }
                 }
@@ -135,7 +143,9 @@ fun UpdateHost() {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("v" + i.name)
+                if (Updater.progress < 0f && i.size > 0) Text(tr("الحجم: ", "Size: ") + fmt(i.size), style = MaterialTheme.typography.bodyMedium)
                 if (Updater.progress >= 0f) LinearProgressIndicator(progress = { if (Updater.progress in 0f..1f) Updater.progress else 1f }, Modifier.fillMaxWidth())
+                if (Updater.progress in 0f..1f) Text(Updater.progressText(), style = MaterialTheme.typography.titleSmall)
                 if (Updater.status.isNotEmpty()) Text(Updater.status, style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -155,6 +165,9 @@ fun UpdateCard() {
             Text(tr("الإصدار الحالي: ", "Current version: ") + Updater.installedName(c), style = MaterialTheme.typography.bodyMedium, color = TextMid)
             if (Updater.status.isNotEmpty()) Text(Updater.status, style = MaterialTheme.typography.bodySmall, color = TextMid)
             if (Updater.progress >= 0f) LinearProgressIndicator(progress = { if (Updater.progress in 0f..1f) Updater.progress else 1f }, Modifier.fillMaxWidth())
+            if (Updater.progress in 0f..1f) Text(Updater.progressText(), style = MaterialTheme.typography.titleSmall)
+            val inf = Updater.info
+            if (inf != null && inf.size > 0 && Updater.progress < 0f) Text(tr("حجم التحديث: ", "Update size: ") + fmt(inf.size), style = MaterialTheme.typography.bodySmall, color = TextMid)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !Updater.checking && Updater.progress < 0f, onClick = { scope.launch { Updater.check(c, true) } }) { Text(tr("تحقق من التحديثات", "Check for updates")) }
                 if (Updater.info != null) FilledTonalButton(enabled = Updater.progress < 0f, onClick = { scope.launch { Updater.install(c) } }) { Text(tr("تحديث الآن", "Update now")) }
