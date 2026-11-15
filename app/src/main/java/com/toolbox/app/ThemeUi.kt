@@ -117,3 +117,43 @@ fun ThemeCard() {
         }
     }
 }
+
+@Composable
+private fun SwitchRow(label: String, v: Boolean, on: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = v, onCheckedChange = on)
+    }
+}
+
+@Composable
+fun NotifCard() {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("إشعار الموسيقى", "Music notification"), style = MaterialTheme.typography.titleMedium)
+            Text(tr("شكل الصورة", "Image style"), style = MaterialTheme.typography.labelMedium, color = TextMid)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(tr("أسطوانة", "Vinyl"), tr("غلاف", "Cover"), tr("بدون صورة", "No image")).forEachIndexed { i, s ->
+                    FilterChip(selected = TB.ntStyle == i, onClick = { TB.pickNtStyle(i) }, label = { Text(s) })
+                }
+            }
+            if (TB.ntStyle == 0) {
+                SwitchRow(tr("دوران الأسطوانة", "Spin the vinyl"), TB.ntSpin) { TB.pickNtSpin(it) }
+                if (TB.ntSpin) {
+                    Text(tr("سلاسة الدوران", "Spin smoothness"), style = MaterialTheme.typography.labelMedium, color = TextMid)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(tr("ناعم", "Smooth"), tr("متوازن", "Balanced"), tr("توفير البطارية", "Battery saver")).forEachIndexed { i, s ->
+                            FilterChip(selected = TB.ntRate == i, onClick = { TB.pickNtRate(i) }, label = { Text(s) })
+                        }
+                    }
+                }
+            }
+            SwitchRow(tr("تلوين الإشعار بلون الغلاف", "Tint notification with cover color"), TB.ntColor) { TB.pickNtColor(it) }
+            SwitchRow(tr("جودة عالية للصورة", "High quality image"), TB.ntHq) { TB.pickNtHq(it) }
+            SwitchRow(tr("زر الإيقاف", "Stop button"), TB.ntStop) { TB.pickNtStop(it) }
+            Text(tr("الدوران في الإشعار يتحدث على دفعات، فالنعومة العالية تستهلك بطارية أكثر. يدور فقط والشاشة شغالة.",
+                "Notification rotation updates in steps, so higher smoothness uses more battery. It only spins while the screen is on."),
+                style = MaterialTheme.typography.bodySmall, color = TextMid)
+        }
+    }
+}

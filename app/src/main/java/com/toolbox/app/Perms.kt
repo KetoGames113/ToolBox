@@ -84,6 +84,7 @@ fun SettingsScreen() {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         UpdateCard()
         ThemeCard()
+        NotifCard()
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text(tr("اللغة", "Language"), style = MaterialTheme.typography.titleMedium)

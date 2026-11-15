@@ -76,28 +76,43 @@ fun darken(c: Int, maxV: Float = 0.42f): Int {
     return android.graphics.Color.HSVToColor(hsv)
 }
 
-/** أسطوانة مرسومة كصورة (للإشعار): أخاديد + لمعة + غلاف الأغنية في المنتصف، تدور بزاوية angle. */
+/** أسطوانة مرسومة كصورة (للإشعار): تدرّج واقعي + أخاديد + لمعة ثابتة + علامات تدور + غلاف الأغنية في المنتصف. */
 fun vinylBitmap(art: Bitmap?, angle: Float, size: Int, tint: Int): Bitmap {
     val bm = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val cv = android.graphics.Canvas(bm)
     val r = size / 2f
-    val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    p.color = 0xFF2A2250.toInt(); cv.drawCircle(r, r, r, p)
-    p.color = 0xFF3A2F70.toInt(); cv.drawCircle(r, r, r * 0.94f, p)
-    p.style = Paint.Style.STROKE; p.strokeWidth = 1f; p.color = 0x22FFFFFF
-    var rad = r * 0.42f
-    while (rad < r * 0.93f) { cv.drawCircle(r, r, rad, p); rad += r * 0.04f }
+    val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    val dark = androidx.core.graphics.ColorUtils.blendARGB(tint, android.graphics.Color.BLACK, 0.55f)
+    val mid = androidx.core.graphics.ColorUtils.blendARGB(tint, android.graphics.Color.BLACK, 0.25f)
+    p.shader = android.graphics.RadialGradient(r, r, r, intArrayOf(mid, dark, androidx.core.graphics.ColorUtils.blendARGB(dark, android.graphics.Color.BLACK, 0.5f)),
+        floatArrayOf(0.35f, 0.8f, 1f), android.graphics.Shader.TileMode.CLAMP)
+    cv.drawCircle(r, r, r * 0.99f, p); p.shader = null
+    p.style = Paint.Style.STROKE; p.strokeWidth = size * 0.012f; p.color = 0x33FFFFFF
+    cv.drawCircle(r, r, r * 0.97f, p)
+    p.strokeWidth = size * 0.003f
+    var rad = r * 0.46f; var k = 0
+    while (rad < r * 0.94f) { p.color = if (k % 2 == 0) 0x1AFFFFFF else 0x0DFFFFFF; cv.drawCircle(r, r, rad, p); rad += r * 0.028f; k++ }
+    // لمعة ثابتة (لا تدور مع الأسطوانة)
     p.style = Paint.Style.FILL
-    val sweep = SweepGradient(r, r, intArrayOf(0x00FFFFFF, 0x40FFFFFF, 0x00FFFFFF, 0x2EFFFFFF, 0x00FFFFFF), null)
-    val m = Matrix(); m.setRotate(angle, r, r); sweep.setLocalMatrix(m)
+    val sweep = SweepGradient(r, r, intArrayOf(0x00FFFFFF, 0x40FFFFFF, 0x00FFFFFF, 0x00FFFFFF, 0x30FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.08f, 0.2f, 0.5f, 0.58f, 0.7f))
+    val m = Matrix(); m.setRotate(-35f, r, r); sweep.setLocalMatrix(m)
     p.shader = sweep; cv.drawCircle(r, r, r * 0.94f, p); p.shader = null
-    val lr = r * 0.40f
+    // علامات خفيفة تدور حتى يظهر الدوران
+    p.style = Paint.Style.STROKE; p.strokeWidth = size * 0.006f; p.color = 0x26FFFFFF; p.strokeCap = Paint.Cap.ROUND
+    cv.save(); cv.rotate(angle, r, r)
+    for (i in 0 until 7) { val rr = r * (0.52f + 0.07f * i); cv.drawArc(RectF(r - rr, r - rr, r + rr, r + rr), i * 51f, 24f, false, p) }
+    cv.restore()
+    // غلاف الأغنية
+    p.style = Paint.Style.FILL
+    p.color = androidx.core.graphics.ColorUtils.blendARGB(tint, android.graphics.Color.WHITE, 0.25f)
+    cv.drawCircle(r, r, r * 0.44f, p)
+    val lr = r * 0.39f
     cv.save(); cv.rotate(angle, r, r)
     val clip = Path().apply { addCircle(r, r, lr, Path.Direction.CW) }
     cv.clipPath(clip)
-    if (art != null) cv.drawBitmap(art, null, RectF(r - lr, r - lr, r + lr, r + lr), Paint(Paint.FILTER_BITMAP_FLAG))
+    if (art != null) cv.drawBitmap(art, null, RectF(r - lr, r - lr, r + lr, r + lr), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
     else { p.color = tint; cv.drawCircle(r, r, lr, p) }
     cv.restore()
-    p.color = 0xFF14121F.toInt(); cv.drawCircle(r, r, r * 0.045f, p)
+    p.color = 0xFF14121F.toInt(); cv.drawCircle(r, r, r * 0.04f, p)
     return bm
 }

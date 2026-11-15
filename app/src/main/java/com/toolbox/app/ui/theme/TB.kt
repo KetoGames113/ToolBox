@@ -34,6 +34,15 @@ object TB {
     var plDim by mutableIntStateOf(p().getInt("pl_dim", 35)); private set
     var plDisc by mutableStateOf(p().getBoolean("pl_disc", true)); private set
     var plLyr by mutableIntStateOf(p().getInt("pl_lyr", 100)); private set
+    var ntStyle by mutableIntStateOf(p().getInt("nt_style", 0)); private set
+    var ntSpin by mutableStateOf(p().getBoolean("nt_spin", true)); private set
+    var ntRate by mutableIntStateOf(p().getInt("nt_rate", 1)); private set
+    var ntColor by mutableStateOf(p().getBoolean("nt_color", true)); private set
+    var ntHq by mutableStateOf(p().getBoolean("nt_hq", true)); private set
+    var ntStop by mutableStateOf(p().getBoolean("nt_stop", true)); private set
+    var plSpeed by mutableIntStateOf(p().getInt("pl_speed", 1)); private set
+    var plArm by mutableStateOf(p().getBoolean("pl_arm", true)); private set
+    var plStyle by mutableIntStateOf(p().getInt("pl_style", 0)); private set
     var lyricsOnline by mutableStateOf(p().getBoolean("lyr_online", true)); private set
 
     fun pickAccent(i: Int) { accent = i; p().edit().putInt("th_acc", i).apply() }
@@ -47,6 +56,15 @@ object TB {
     fun pickPlDim(v: Int) { plDim = v; p().edit().putInt("pl_dim", v).apply() }
     fun pickPlDisc(v: Boolean) { plDisc = v; p().edit().putBoolean("pl_disc", v).apply() }
     fun pickPlLyr(v: Int) { plLyr = v; p().edit().putInt("pl_lyr", v).apply() }
+    fun pickNtStyle(v: Int) { ntStyle = v; p().edit().putInt("nt_style", v).apply() }
+    fun pickNtSpin(v: Boolean) { ntSpin = v; p().edit().putBoolean("nt_spin", v).apply() }
+    fun pickNtRate(v: Int) { ntRate = v; p().edit().putInt("nt_rate", v).apply() }
+    fun pickNtColor(v: Boolean) { ntColor = v; p().edit().putBoolean("nt_color", v).apply() }
+    fun pickNtHq(v: Boolean) { ntHq = v; p().edit().putBoolean("nt_hq", v).apply() }
+    fun pickNtStop(v: Boolean) { ntStop = v; p().edit().putBoolean("nt_stop", v).apply() }
+    fun pickPlSpeed(v: Int) { plSpeed = v; p().edit().putInt("pl_speed", v).apply() }
+    fun pickPlArm(v: Boolean) { plArm = v; p().edit().putBoolean("pl_arm", v).apply() }
+    fun pickPlStyle(v: Int) { plStyle = v; p().edit().putInt("pl_style", v).apply() }
     fun pickLyrics(v: Boolean) { lyricsOnline = v; p().edit().putBoolean("lyr_online", v).apply() }
     fun pickBg(path: String) {
         val old = bg

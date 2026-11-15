@@ -79,6 +79,8 @@ fun NowPlaying(onClose: () -> Unit) {
     var fav by remember(cur.path) { mutableStateOf(App.i.prefs().getStringSet("fav", emptySet())!!.contains(cur.path)) }
     var showLyrics by remember { mutableStateOf(false) }
     var themeSheet by remember { mutableStateOf(false) }
+    var searchDlg by remember { mutableStateOf(false) }
+    var lyrOff by remember(cur.path) { mutableLongStateOf(LyricsRepo.getOffset(cur)) }
 
     val artBmp by produceState<Bitmap?>(null, cur.path) { value = withContext(Dispatchers.IO) { Art.load(cur.path, 700) } }
     val art = remember(artBmp) { artBmp?.asImageBitmap() }
@@ -99,6 +101,11 @@ fun NowPlaying(onClose: () -> Unit) {
     val bottom by animateColorAsState(if (auto) mix(base.bg2, tint, 0.30f) else base.bg2, tween(700), label = "bottom")
     val disc by animateColorAsState(if (auto) mix(base.disc, tint, 0.30f) else base.disc, tween(700), label = "disc")
     val pt = base.copy(bg1 = top, bg2 = bottom, disc = disc)
+    val dc: Pair<Color, Color> = when (TB.plStyle) {
+        1 -> Pair(Color(0xFF16141D), Color(0xFF2C2938))
+        2 -> { val tt = tint ?: pt.disc; Pair(lerp(tt, Color.Black, 0.55f), lerp(tt, Color.White, 0.18f)) }
+        else -> Pair(pt.disc, pt.rim)
+    }
 
     var reload by remember { mutableIntStateOf(0) }
     var lyr by remember(cur.path) { mutableStateOf<Lyrics?>(null) }
@@ -113,14 +120,16 @@ fun NowPlaying(onClose: () -> Unit) {
     }
 
     var angle by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(vp.playing) {
-        if (vp.playing) {
-            var last = withFrameNanos { it }
-            while (true) {
-                val now = withFrameNanos { it }
-                angle = (angle + (now - last) / 1_000_000_000f * 40f) % 360f
-                last = now
-            }
+    var vel by remember { mutableFloatStateOf(0f) }
+    val topSpeed = when (TB.plSpeed) { 0 -> 24f; 2 -> 70f; else -> 42f }
+    LaunchedEffect(vp.playing, topSpeed) {
+        var last = withFrameNanos { it }
+        while (vp.playing || vel > 0.4f) {
+            val now = withFrameNanos { it }
+            val dt = (now - last) / 1_000_000_000f; last = now
+            val goal = if (vp.playing) topSpeed else 0f
+            vel += (goal - vel) * (1f - kotlin.math.exp(-dt / 0.45f))
+            angle = (angle + vel * dt) % 360f
         }
     }
     val armDeg by animateFloatAsState(if (vp.playing) 0f else -26f, tween(650), label = "arm")
@@ -134,7 +143,7 @@ fun NowPlaying(onClose: () -> Unit) {
     }
     val title = cur.title.ifEmpty { File(cur.path).nameWithoutExtension }
     val lyricsPanel: @Composable (Modifier) -> Unit = { m ->
-        LyricsPanel(lyr, lstate, vp.time, pt.ink, pt.lilac, TB.plLyr / 100f, { vp.mp.time = it }, { pick.launch(arrayOf("*/*")) }, m)
+        LyricsPanel(lyr, lstate, vp.time + lyrOff, pt.ink, pt.lilac, TB.plLyr / 100f, { vp.mp.time = maxOf(0L, it - lyrOff) }, { searchDlg = true }, m)
     }
 
     CompositionLocalProvider(LocalPT provides pt) {
@@ -146,7 +155,7 @@ fun NowPlaying(onClose: () -> Unit) {
                     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                         BoxWithConstraints(Modifier.weight(0.44f).fillMaxHeight().padding(12.dp), contentAlignment = Alignment.Center) {
                             val d = minOf(maxWidth, maxHeight)
-                            if (TB.plDisc) Vinyl(art, angle, armDeg, pt.disc, pt.rim, Modifier.size(d))
+                            if (TB.plDisc) Vinyl(art, angle, armDeg, dc.first, dc.second, TB.plArm, Modifier.size(d))
                         }
                         CompositionLocalProvider(LocalLayoutDirection provides appDir) {
                             Column(Modifier.weight(0.56f).fillMaxHeight().padding(horizontal = 20.dp, vertical = 4.dp)) {
@@ -154,7 +163,7 @@ fun NowPlaying(onClose: () -> Unit) {
                                 TitleBlock(title, cur.artist, true)
                                 lyricsPanel(Modifier.weight(1f).fillMaxWidth())
                                 Transport(vp)
-                                Extras(vp, null)
+                                Extras(vp, null, lyrOff, { lyrOff = it; LyricsRepo.setOffset(cur, it) }) { searchDlg = true }
                             }
                         }
                     }
@@ -164,16 +173,17 @@ fun NowPlaying(onClose: () -> Unit) {
                     Header(onClose, fav, onFav) { themeSheet = true }
                     Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
                         if (showLyrics || !TB.plDisc) lyricsPanel(Modifier.fillMaxSize())
-                        else Vinyl(art, angle, armDeg, pt.disc, pt.rim, Modifier.fillMaxSize())
+                        else Vinyl(art, angle, armDeg, dc.first, dc.second, TB.plArm, Modifier.fillMaxSize())
                     }
                     Spacer(Modifier.height(8.dp))
                     TitleBlock(title, cur.artist, false)
                     Transport(vp)
-                    Extras(vp) { showLyrics = !showLyrics }
+                    Extras(vp, { showLyrics = !showLyrics }, lyrOff, { lyrOff = it; LyricsRepo.setOffset(cur, it) }) { searchDlg = true }
                 }
             }
         }
         if (themeSheet) PlayerThemeSheet { themeSheet = false }
+        if (searchDlg) LyricsSearchDialog(cur, { searchDlg = false; reload++ }) { searchDlg = false }
     }
 }
 
@@ -218,7 +228,7 @@ private fun TitleBlock(title: String, artist: String, compact: Boolean) {
 }
 
 @Composable
-private fun Vinyl(art: ImageBitmap?, angle: Float, armDeg: Float, disc: Color, rim: Color, modifier: Modifier) {
+private fun Vinyl(art: ImageBitmap?, angle: Float, armDeg: Float, disc: Color, rim: Color, armOn: Boolean, modifier: Modifier) {
     BoxWithConstraints(modifier.aspectRatio(1f)) {
         val s = maxWidth
         val artR = s * 0.136f
@@ -230,16 +240,25 @@ private fun Vinyl(art: ImageBitmap?, angle: Float, armDeg: Float, disc: Color, r
             drawCircle(rim, r, ctr)
             drawCircle(disc, r * 0.94f, ctr)
             for (i in 0..14) drawCircle(Color.White.copy(alpha = 0.05f), r * (0.46f + i * 0.032f), ctr, style = Stroke(1.2f))
-            rotate(angle, ctr) {
+            // لمعة ثابتة كالأسطوانة الحقيقية (لا تدور مع القرص)
+            rotate(-35f, ctr) {
                 drawCircle(
-                    brush = Brush.sweepGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.12f), Color.Transparent, Color.White.copy(alpha = 0.09f), Color.Transparent), ctr),
+                    brush = Brush.sweepGradient(0f to Color.Transparent, 0.08f to Color.White.copy(alpha = 0.16f), 0.2f to Color.Transparent, 0.5f to Color.Transparent,
+                        0.58f to Color.White.copy(alpha = 0.11f), 0.7f to Color.Transparent, 1f to Color.Transparent, center = ctr),
                     radius = r * 0.94f, center = ctr
                 )
+            }
+            // علامات خفيفة تدور لتوضّح الحركة
+            rotate(angle, ctr) {
+                for (k in 0 until 7) {
+                    val rr = r * (0.52f + 0.07f * k)
+                    drawArc(Color.White.copy(alpha = 0.10f), k * 51f, 24f, false, Offset(ctr.x - rr, ctr.y - rr), Size(rr * 2, rr * 2), style = Stroke(w * 0.005f, cap = StrokeCap.Round))
+                }
             }
             drawCircle(rim.copy(alpha = 0.9f), r * 0.42f, ctr)
             val pivot = Offset(w * 0.90f, w * 0.04f)
             val head = Offset(w * 0.70f, w * 0.40f)
-            rotate(armDeg, pivot) {
+            if (armOn) rotate(armDeg, pivot) {
                 val p = Path().apply {
                     moveTo(pivot.x, pivot.y)
                     cubicTo(pivot.x - w * 0.02f, pivot.y + w * 0.36f, pivot.x - w * 0.10f, pivot.y + w * 0.30f, head.x, head.y - w * 0.04f)
@@ -293,14 +312,27 @@ private fun Transport(vp: Vp) {
 }
 
 @Composable
-private fun Extras(vp: Vp, onLyrics: (() -> Unit)?) {
+private fun Extras(vp: Vp, onLyrics: (() -> Unit)?, off: Long, onOff: (Long) -> Unit, onSearch: () -> Unit) {
     val pt = LocalPT.current
     var eq by remember { mutableStateOf(false) }
     var speedMenu by remember { mutableStateOf(false) }
     var sleepMenu by remember { mutableStateOf(false) }
+    var syncMenu by remember { mutableStateOf(false) }
     val tc = ButtonDefaults.textButtonColors(contentColor = pt.lilac)
-    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         if (onLyrics != null) TextButton(onClick = onLyrics, colors = tc) { Text(tr("الكلمات", "Lyrics")) }
+        IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, null, tint = pt.lilac) }
+        Box {
+            IconButton(onClick = { syncMenu = true }) { Icon(Icons.Rounded.Tune, null, tint = if (off != 0L) pt.ink else pt.lilac) }
+            DropdownMenu(syncMenu, { syncMenu = false }) {
+                Text(tr("تزامن الكلمات: ", "Lyrics sync: ") + (if (off > 0) "+" else "") + "${off / 1000f}s", Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
+                listOf(-1000L to "−1.0s", -500L to "−0.5s", 500L to "+0.5s", 1000L to "+1.0s").forEach { (d, label) ->
+                    DropdownMenuItem(text = { Text(tr("الكلمات أبكر ", "Lyrics earlier ").takeIf { d > 0 } ?: tr("الكلمات أبطأ ", "Lyrics later "), maxLines = 1) },
+                        trailingIcon = { Text(label) }, onClick = { onOff(off + d) })
+                }
+                DropdownMenuItem(text = { Text(tr("إعادة ضبط", "Reset")) }, onClick = { onOff(0L); syncMenu = false })
+            }
+        }
         Box {
             TextButton(onClick = { speedMenu = true }, colors = tc) { Text("${vp.mp.rate}x") }
             DropdownMenu(speedMenu, { speedMenu = false }) {
@@ -358,6 +390,24 @@ private fun PlayerThemeSheet(onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("إظهار الأسطوانة", "Show vinyl"), Modifier.weight(1f))
                 Switch(checked = TB.plDisc, onCheckedChange = { TB.pickPlDisc(it) })
+            }
+            if (TB.plDisc) {
+                Text(tr("شكل الأسطوانة", "Vinyl style"), style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(tr("حسب الثيم", "Theme"), tr("أسود كلاسيكي", "Classic black"), tr("بلون الغلاف", "Cover tint")).forEachIndexed { i, x ->
+                        FilterChip(selected = TB.plStyle == i, onClick = { TB.pickPlStyle(i) }, label = { Text(x) })
+                    }
+                }
+                Text(tr("سرعة الدوران", "Spin speed"), style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(tr("بطيء", "Slow"), tr("عادي", "Normal"), tr("سريع", "Fast")).forEachIndexed { i, x ->
+                        FilterChip(selected = TB.plSpeed == i, onClick = { TB.pickPlSpeed(i) }, label = { Text(x) })
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("إظهار الذراع", "Show tonearm"), Modifier.weight(1f))
+                    Switch(checked = TB.plArm, onCheckedChange = { TB.pickPlArm(it) })
+                }
             }
             Text(tr("حجم الكلمات", "Lyrics size") + ": ${TB.plLyr}%", style = MaterialTheme.typography.labelMedium)
             Slider(value = TB.plLyr.toFloat(), onValueChange = { TB.pickPlLyr(it.toInt()) }, valueRange = 70f..150f)

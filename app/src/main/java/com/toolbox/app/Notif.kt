@@ -16,20 +16,23 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import com.toolbox.app.ui.theme.TB
 
 class AudioService : Service() {
     private val h = Handler(Looper.getMainLooper())
     private var session: MediaSession? = null
     private var ang = 0f
     private var lastPath = ""
+    private var lastHq = true
     private var artBmp: Bitmap? = null
     private var tint = 0xFF6853C4.toInt()
 
     private val ticker = object : Runnable {
         override fun run() {
             val pm = getSystemService(PowerManager::class.java)
-            if (Au.vp.mp.isPlaying && pm.isInteractive) { ang = (ang + 14f) % 360f; push() }
-            h.postDelayed(this, 1000)
+            val ms = when (TB.ntRate) { 0 -> 350L; 2 -> 1000L; else -> 600L }
+            if (TB.ntSpin && TB.ntStyle == 0 && Au.vp.mp.isPlaying && pm.isInteractive) { ang = (ang + 40f * ms / 1000f) % 360f; push() }
+            h.postDelayed(this, ms)
         }
     }
 
@@ -73,9 +76,10 @@ class AudioService : Service() {
     private fun build(): Notification {
         val t = Au.cur
         val playing = Au.vp.mp.isPlaying
-        if (t != null && t.path != lastPath) {
-            lastPath = t.path
-            artBmp = Art.load(t.path, 256)
+        val size = if (TB.ntHq) 384 else 256
+        if (t != null && (t.path != lastPath || lastHq != TB.ntHq)) {
+            lastPath = t.path; lastHq = TB.ntHq
+            artBmp = Art.load(t.path, size)
             tint = darken(artBmp?.let { avgColor(it) } ?: 0xFF6853C4.toInt())
             session?.setMetadata(MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, t.title)
@@ -88,14 +92,17 @@ class AudioService : Service() {
             .setState(if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED, Au.vp.time.toLong(), if (playing) 1f else 0f).build())
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val b = Notification.Builder(this, "tb").setSmallIcon(R.drawable.ic_stat_vinyl)
-            .setLargeIcon(vinylBitmap(artBmp, ang, 256, tint))
             .setContentTitle(t?.title?.ifEmpty { null } ?: "ToolBox").setContentText(t?.artist ?: "")
             .setContentIntent(open).setOngoing(playing).setOnlyAlertOnce(true).setShowWhen(false)
-            .setColor(tint).setColorized(true)
             .addAction(act("prev", android.R.drawable.ic_media_previous, "Prev"))
             .addAction(act("pp", if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play, "Play/Pause"))
             .addAction(act("next", android.R.drawable.ic_media_next, "Next"))
-            .addAction(act("stop", android.R.drawable.ic_menu_close_clear_cancel, "Stop"))
+        if (TB.ntStop) b.addAction(act("stop", android.R.drawable.ic_menu_close_clear_cancel, "Stop"))
+        when (TB.ntStyle) {
+            0 -> b.setLargeIcon(vinylBitmap(artBmp, ang, size, tint))
+            1 -> artBmp?.let { b.setLargeIcon(it) }
+        }
+        if (TB.ntColor) b.setColor(tint).setColorized(true)
         val st = Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)
         session?.let { st.setMediaSession(it.sessionToken) }
         return b.setStyle(st).build()
