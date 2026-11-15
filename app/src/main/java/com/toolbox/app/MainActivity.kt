@@ -115,6 +115,7 @@ fun titleOf(r: String) = when (r) {
     "apk" -> tr("استخراج وتثبيت APK/XAPK", "APK / XAPK tools")
     "bundle" -> tr("تثبيت", "Install")
     "transfer" -> tr("النقل (جوال ↔ كمبيوتر)", "Transfer (phone ↔ PC)")
+    "vpn" -> "VPN"
     "files" -> tr("مدير الملفات", "File manager")
     "archive" -> tr("أرشيف", "Archive")
     "dl" -> tr("مدير التحميل", "Downloader")
@@ -137,6 +138,7 @@ fun Root(nav: Nav) {
     ToolBoxTheme(arabic = L.ar) {
         UpdateHost()
         InstallConflictHost()
+        VpnAutoStart()
         CompositionLocalProvider(
             LocalLayoutDirection provides (if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr),
             LocalNav provides nav
@@ -170,6 +172,7 @@ fun Root(nav: Nav) {
                             "apk" -> ApkScreen()
                             "bundle" -> BundleScreen(arg)
                             "transfer" -> TransferScreen()
+                            "vpn" -> VpnScreen()
                             "files" -> FilesScreen(arg)
                             "archive" -> ArchiveScreen(arg)
                             "dl" -> DlScreen(arg)

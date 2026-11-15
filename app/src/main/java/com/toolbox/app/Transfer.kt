@@ -364,6 +364,7 @@ fun TransferScreen() {
         }.start()
     }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        QuickSendCard()
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (running) tr("الخادم يعمل ✔", "Server running") else tr("الخادم متوقف", "Server stopped"), style = MaterialTheme.typography.titleMedium)

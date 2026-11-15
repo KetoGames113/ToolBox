@@ -38,6 +38,7 @@ val Tools = listOf(
     Tool("cleaner", "المنظف", "Cleaner", "حرّر مساحة بنقرة", "Free up space", Icons.Rounded.CleaningServices, AccCleaner),
     Tool("files", "مدير الملفات", "Files", "تصفّح وأدر ملفاتك", "Browse & manage", Icons.Rounded.Folder, AccFiles),
     Tool("transfer", "النقل للكمبيوتر", "Transfer to PC", "عبر الشبكة المحلية", "Over local network", Icons.Rounded.SwapHoriz, AccTransfer),
+    Tool("vpn", "VPN", "VPN", "اتصال سريع وآمن", "Fast & private", Icons.Rounded.VpnKey, AccTransfer),
     Tool("videos", "الفيديو", "Video", "مشغّل سلس", "Smooth player", Icons.Rounded.PlayCircle, AccVideo),
     Tool("audios", "الصوتيات", "Audio", "موسيقاك في مكان واحد", "Your music, one place", Icons.Rounded.MusicNote, AccAudio),
     Tool("photos", "الصور", "Photos", "معرض سريع", "Fast gallery", Icons.Rounded.Image, AccImages),

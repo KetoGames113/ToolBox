@@ -44,6 +44,8 @@ dependencies {
     implementation("io.coil-kt:coil-video:2.7.0")
     implementation("org.videolan.android:libvlc-all:3.6.0")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("org.tukaani:xz:1.10")
     implementation("com.github.junrar:junrar:7.5.5")

@@ -21,6 +21,7 @@ object PcServer {
     val shared = mutableStateListOf<File>()
     var running by mutableStateOf(false)
     private var srv: HttpServer? = null
+    private var udp: java.net.DatagramSocket? = null
 
     fun ips(): List<String> = try {
         NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback && !it.isVirtual }
@@ -64,10 +65,24 @@ object PcServer {
                 e.responseBody.use { o -> f.inputStream().use { it.copyTo(o, 1 shl 18) } }
             }
             s.start(); srv = s; running = true
+            Thread {
+                try {
+                    val sock = java.net.DatagramSocket(null); sock.reuseAddress = true; sock.bind(InetSocketAddress(45454)); udp = sock
+                    val host = try { java.net.InetAddress.getLocalHost().hostName } catch (_: Throwable) { "PC" }
+                    val buf = ByteArray(256)
+                    while (running) {
+                        val p = java.net.DatagramPacket(buf, buf.size); sock.receive(p)
+                        if (String(p.data, 0, p.length).startsWith("TOOLBOX_DISCOVER")) {
+                            val r = "TOOLBOX_HERE|$host|$PORT|pc".toByteArray()
+                            sock.send(java.net.DatagramPacket(r, r.size, p.address, p.port))
+                        }
+                    }
+                } catch (_: Throwable) {}
+            }.apply { isDaemon = true }.start()
         } catch (_: Throwable) { running = false }
     }
 
-    fun stop() { srv?.stop(0); running = false }
+    fun stop() { srv?.stop(0); running = false; try { udp?.close() } catch (_: Throwable) {} }
 
     private const val PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ToolBox PC</title>
 <style>body{font-family:system-ui;background:#111;color:#eee;margin:0;padding:16px}.b{background:#2d6cdf;color:#fff;border:0;border-radius:8px;padding:12px 16px;font-size:17px;margin:4px 0}a{color:#7cc4ff}progress{width:100%}.r{padding:8px 0;border-bottom:1px solid #333}</style></head><body dir="auto">
